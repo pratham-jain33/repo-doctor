@@ -31,14 +31,13 @@
 
   <!-- ============ SCREEN: HOME ============ -->
   <section id="screen-home" class="screen">
-    <button class="btn btn-ghost back" id="back-to-results" hidden><i data-lucide="arrow-left"></i> back to results</button>
     <div class="hero">
       <div class="hero-badges">
         <div class="hero-badge"><i data-lucide="sparkles"></i> free forever, no sign-up</div>
         <a class="hero-badge hero-badge-link" id="stars-pill" href="https://github.com/pratham-jain33/repo-doctor" target="_blank" rel="noopener" hidden><i data-lucide="star"></i> <span id="stars-count">0</span>&nbsp;stars</a>
       </div>
       <h1>Your GitHub looks abandoned.<br><span class="hl">Fix it in an afternoon.</span></h1>
-      <p class="lede">repo-doctor scans your repos and tells you exactly what breaks the house standard: missing READMEs, empty descriptions, no topics, no license. Worst repos first. Then AI writes the fixes and opens PRs you merge.</p>
+      <p class="lede">Find what breaks the house standard, then let AI fix it.</p>
 
       <form id="username-form" class="username-form" autocomplete="off">
         <div class="input-row">
@@ -49,57 +48,56 @@
         <p class="form-error" id="username-error" hidden></p>
       </form>
 
-      <p class="trust" id="trust-line">No token needed for public repos. Your browser talks straight to GitHub's API. Nothing is stored, nothing is sent anywhere else.</p>
-
-      <div class="token-box groq-box">
-        <div class="groq-promo" id="groq-promo">
-          <h3><i data-lucide="sparkles"></i> Unlock AI fixes</h3>
-          <p>The audit tells you what&apos;s broken. <strong>AI fixes it.</strong> A real README for every repo, the About box filled in, a LICENSE added &mdash; delivered as pull requests you merge. Runs on your Groq key and free quota. The key stays in this browser and is only ever sent to api.groq.com. Grab one at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>.</p>
+      <div class="connections">
+        <h3 class="connections-title">connections (local)</h3>
+        <div class="connections-grid">
+          <div class="conn-box">
+            <h4><i data-lucide="key-round"></i> GitHub key</h4>
+            <p class="muted small conn-desc">Private repos in the audit, plus opening fix PRs. <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">Classic token</a> with the <code class="scope-chip">repo</code> scope.</p>
+            <div id="token-form">
+              <div class="input-row conn-input">
+                <input id="token-input" type="password" placeholder="paste token here" spellcheck="false" autocapitalize="off" autocomplete="off">
+                <button type="button" class="btn btn-primary" id="token-go">Connect</button>
+              </div>
+              <div class="token-row">
+                <label class="check"><input type="checkbox" id="token-remember" checked><span class="custom-check"><i data-lucide="check"></i></span> remember in this browser</label>
+                <button type="button" class="btn btn-ghost btn-mini" id="token-show">show</button>
+              </div>
+              <p class="form-error" id="token-error" hidden></p>
+            </div>
+            <div class="token-active" id="token-active" hidden>
+              <div class="token-active-info">
+                <p class="token-active-line"><i data-lucide="check"></i> <span>Connected as <strong id="token-user"></strong></span></p>
+                <p class="muted small">Private repos included &middot; up to 100 per audit</p>
+              </div>
+              <button type="button" class="btn btn-ghost" id="token-forget"><i data-lucide="trash-2"></i> forget token</button>
+            </div>
+            <p class="token-note" id="token-note" hidden></p>
+          </div>
+          <div class="conn-box conn-groq">
+            <h4><i data-lucide="sparkles"></i> Groq key</h4>
+            <p class="muted small conn-desc">Unlocks the AI fixes: real READMEs, the About box, LICENSE &mdash; as PRs you merge. Free quota. <a href="https://console.groq.com/keys" target="_blank" rel="noopener">Get a key</a>.</p>
+            <div id="groq-form">
+              <div class="input-row conn-input">
+                <input id="groq-input" type="password" placeholder="paste groq key here" spellcheck="false" autocapitalize="off" autocomplete="off">
+                <button type="button" class="btn btn-primary" id="groq-go">Unlock AI fixes</button>
+              </div>
+              <div class="token-row">
+                <label class="check"><input type="checkbox" id="groq-remember" checked><span class="custom-check"><i data-lucide="check"></i></span> remember in this browser</label>
+                <button type="button" class="btn btn-ghost btn-mini" id="groq-show">show</button>
+              </div>
+              <p class="form-error" id="groq-error" hidden></p>
+            </div>
+            <div class="token-active" id="groq-active" hidden>
+              <div class="token-active-info">
+                <p class="token-active-line"><i data-lucide="check"></i> <span>Groq key connected</span></p>
+                <p class="muted small">AI fixes ready &middot; runs on your key and quota</p>
+              </div>
+              <button type="button" class="btn btn-ghost" id="groq-forget"><i data-lucide="trash-2"></i> forget key</button>
+            </div>
+          </div>
         </div>
-        <div class="token-form" id="groq-form">
-          <div class="input-row">
-            <i data-lucide="lock" class="input-icon"></i>
-            <input id="groq-input" type="password" placeholder="paste groq key here" spellcheck="false" autocapitalize="off" autocomplete="off">
-            <button type="button" class="btn btn-primary" id="groq-go">Unlock AI fixes <i data-lucide="arrow-right"></i></button>
-          </div>
-          <div class="token-row">
-            <label class="check"><input type="checkbox" id="groq-remember" checked><span class="custom-check"><i data-lucide="check"></i></span> remember in this browser</label>
-            <button type="button" class="btn btn-ghost btn-mini" id="groq-show">show</button>
-          </div>
-          <p class="form-error" id="groq-error" hidden></p>
-        </div>
-        <div class="token-active" id="groq-active" hidden>
-          <div class="token-active-info">
-            <p class="token-active-line"><i data-lucide="check"></i> <span>Groq key connected</span></p>
-            <p class="muted small">AI fixes ready &middot; runs on your key and quota</p>
-          </div>
-          <button type="button" class="btn btn-ghost" id="groq-forget"><i data-lucide="trash-2"></i> forget key</button>
-        </div>
-      </div>
-
-      <div class="token-box">
-        <button class="token-toggle" id="token-toggle" type="button"><i data-lucide="key-round"></i> Have a token? Audit private repos too</button>
-        <div class="token-form" id="token-form" hidden>
-          <p class="token-explainer">Create a <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">classic personal access token</a> with the <code class="scope-chip">repo</code> scope. It stays in this browser and is only ever sent to api.github.com. Delete it from GitHub settings whenever you are done.</p>
-          <div class="input-row">
-            <i data-lucide="lock" class="input-icon"></i>
-            <input id="token-input" type="password" placeholder="paste token here" spellcheck="false" autocapitalize="off" autocomplete="off">
-            <button type="button" class="btn btn-primary" id="token-go">Connect <i data-lucide="arrow-right"></i></button>
-          </div>
-          <div class="token-row">
-            <label class="check"><input type="checkbox" id="token-remember" checked><span class="custom-check"><i data-lucide="check"></i></span> remember in this browser</label>
-            <button type="button" class="btn btn-ghost btn-mini" id="token-show">show</button>
-          </div>
-          <p class="form-error" id="token-error" hidden></p>
-        </div>
-        <div class="token-active" id="token-active" hidden>
-          <div class="token-active-info">
-            <p class="token-active-line"><i data-lucide="check"></i> <span>Connected as <strong id="token-user"></strong></span></p>
-            <p class="muted small">Private repos included · up to 100 per audit</p>
-          </div>
-          <button type="button" class="btn btn-ghost" id="token-forget"><i data-lucide="trash-2"></i> forget token</button>
-        </div>
-        <p class="token-note" id="token-note" hidden></p>
+        <p class="muted small conn-note">Both keys stay in this browser, sent only to their own API. Forget them anytime.</p>
       </div>
 
     </div>

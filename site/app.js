@@ -43,10 +43,6 @@ function icons() {
 function showScreen(id) {
   for (const s of document.querySelectorAll(".screen")) s.hidden = true;
   document.getElementById(id).hidden = false;
-  if (id === "screen-home") {
-    // Offer a way back after visiting home mid-session to add keys.
-    document.getElementById("back-to-results").hidden = state.results.length === 0;
-  }
   window.scrollTo(0, 0);
   icons();
 }
@@ -184,10 +180,8 @@ document.getElementById("brand-home").addEventListener("click", (e) => {
 
 function showTokenActive() {
   document.getElementById("token-form").hidden = true;
-  document.getElementById("token-toggle").style.display = "none";
   document.getElementById("token-active").hidden = false;
   document.getElementById("token-user").textContent = "@" + state.tokenLogin;
-  document.getElementById("trust-line").hidden = true;
   icons();
 }
 
@@ -197,8 +191,7 @@ function forgetToken() {
   try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
   document.getElementById("token-input").value = "";
   document.getElementById("token-active").hidden = true;
-  document.getElementById("token-toggle").style.display = "";
-  document.getElementById("trust-line").hidden = false;
+  document.getElementById("token-form").hidden = false;
 }
 
 async function connectToken(token, remember) {
@@ -245,11 +238,6 @@ async function connectToken(token, remember) {
   await loadRepos();
 }
 
-document.getElementById("token-toggle").addEventListener("click", () => {
-  const f = document.getElementById("token-form");
-  f.hidden = !f.hidden;
-  icons();
-});
 document.getElementById("token-go").addEventListener("click", () => {
   const t = document.getElementById("token-input").value.trim();
   const err = document.getElementById("token-error");
@@ -355,7 +343,6 @@ document.getElementById("groq-show").addEventListener("click", (e) => {
   inp.type = show ? "text" : "password";
   e.target.textContent = show ? "hide" : "show";
 });
-document.getElementById("back-to-results").addEventListener("click", renderResults);
 
 // Restore a remembered Groq key on load and validate it silently.
 (async function initGroq() {

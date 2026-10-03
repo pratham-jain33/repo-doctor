@@ -49,7 +49,7 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .topnav a:hover { color: var(--ink); }
 
 /* ---------- hero ---------- */
-.hero { text-align: center; padding: 3.5rem 0 3rem; }
+.hero { text-align: center; padding: 1.6rem 0 3rem; }
 .hero-badges { display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.4rem; }
 .hero-badge { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0.3rem 0.9rem; font-size: 0.8rem; color: var(--muted); }
 .hero-badge[hidden] { display: none; }
@@ -214,14 +214,19 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .result-link { font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.35rem; }
 .result-link svg { width: 14px; height: 14px; }
 
-/* ---------- AI fixes promo (groq BYOK) ---------- */
-.groq-box { border: 1px solid var(--amber-dim); border-radius: var(--radius); padding: 1.3rem 1.4rem; background: linear-gradient(180deg, rgba(251,191,36,0.07), rgba(251,191,36,0.015)); text-align: left; }
-.groq-promo h3 { display: flex; align-items: center; gap: 0.55rem; font-size: 1.12rem; margin-bottom: 0.5rem; }
-.groq-promo h3 svg { width: 19px; height: 19px; color: var(--amber); }
-.groq-promo p { color: var(--muted); font-size: 0.92rem; margin-bottom: 1rem; }
-.groq-promo p strong { color: var(--ink); }
-.groq-box .token-form { border: none; padding: 0; margin-top: 0; text-align: left; }
-.groq-box .input-row { margin: 0; max-width: none; }
+/* ---------- connections ---------- */
+.connections { max-width: 720px; margin: 2.2rem auto 0; }
+.connections-title { text-align: center; font-size: 0.95rem; color: var(--faint); font-weight: 600; margin-bottom: 0.9rem; }
+.connections-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.conn-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.2rem 1.25rem; }
+.conn-box.conn-groq { border-color: var(--amber-dim); background: linear-gradient(180deg, rgba(251,191,36,0.07), rgba(251,191,36,0.015)); }
+.conn-box h4 { display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; margin-bottom: 0.4rem; }
+.conn-box h4 svg { width: 17px; height: 17px; color: var(--amber); }
+.conn-desc { margin-bottom: 0.9rem; }
+.conn-input { flex-direction: column; max-width: none; margin: 0; }
+.connections .input-row input { padding-left: 1rem; width: 100%; }
+.conn-input .btn { justify-content: center; }
+.conn-note { text-align: center; margin-top: 0.9rem; }
 
 /* ---------- AI fixes ---------- */
 .keys-hint { display: flex; align-items: center; gap: 0.8rem; background: #1c1608; border: 1px solid var(--amber-dim); border-radius: var(--radius); padding: 0.9rem 1.1rem; margin-bottom: 1.2rem; }
@@ -274,6 +279,7 @@ footer { border-top: 1px solid var(--line); padding: 1.8rem 0; }
 
 @media (max-width: 640px) {
   .steps, .standard-grid { grid-template-columns: 1fr; }
+  .connections-grid { grid-template-columns: 1fr; }
   .input-row { flex-direction: column; }
   .input-icon { top: 1.35rem; }
   .repo-meta { display: none; }
