@@ -263,7 +263,7 @@ async function loadRepos() {
     showPickerError(e);
     return;
   }
-  if (!state.repos.length) {
+  if (!state.fetchedRepos.length) {
     list.innerHTML = "";
     document.getElementById("picker-error-title").textContent = "No public repos";
     document.getElementById("picker-error-msg").textContent =
