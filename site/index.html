@@ -66,7 +66,10 @@
           <p class="form-error" id="token-error" hidden></p>
         </div>
         <div class="token-active" id="token-active" hidden>
-          <p><i data-lucide="check"></i> Connected as <strong id="token-user"></strong>. Private repos included, up to 100 per audit.</p>
+          <div class="token-active-info">
+            <p class="token-active-line"><i data-lucide="check"></i> <span>Connected as <strong id="token-user"></strong></span></p>
+            <p class="muted small">Private repos included · up to 100 per audit</p>
+          </div>
           <button type="button" class="btn btn-ghost" id="token-forget"><i data-lucide="trash-2"></i> forget token</button>
         </div>
         <p class="token-note" id="token-note" hidden></p>
