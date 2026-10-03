@@ -49,12 +49,12 @@
       </form>
 
       <div class="connections">
-        <h3 class="connections-title">connections (local)</h3>
+        <h3 class="connections-title">Connections <span class="local-chip">local</span></h3>
         <div class="connections-grid">
           <div class="conn-box">
             <h4><i data-lucide="key-round"></i> GitHub key</h4>
-            <p class="muted small conn-desc">Private repos in the audit, plus opening fix PRs. <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">Classic token</a> with the <code class="scope-chip">repo</code> scope.</p>
-            <div id="token-form">
+            <p class="muted small conn-desc">Private repos in the audit, plus fix PRs. <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">Classic token</a> with the <code class="scope-chip">repo</code> scope.</p>
+            <div id="token-form" class="conn-form">
               <div class="input-row conn-input">
                 <input id="token-input" type="password" placeholder="paste token here" spellcheck="false" autocapitalize="off" autocomplete="off">
                 <button type="button" class="btn btn-primary" id="token-go">Connect</button>
@@ -76,8 +76,8 @@
           </div>
           <div class="conn-box conn-groq">
             <h4><i data-lucide="sparkles"></i> Groq key</h4>
-            <p class="muted small conn-desc">Unlocks the AI fixes: real READMEs, the About box, LICENSE &mdash; as PRs you merge. Free quota. <a href="https://console.groq.com/keys" target="_blank" rel="noopener">Get a key</a>.</p>
-            <div id="groq-form">
+            <p class="muted small conn-desc">AI-written READMEs, About box, LICENSE — as PRs you merge. <a href="https://console.groq.com/keys" target="_blank" rel="noopener">Get a key</a>, free quota.</p>
+            <div id="groq-form" class="conn-form">
               <div class="input-row conn-input">
                 <input id="groq-input" type="password" placeholder="paste groq key here" spellcheck="false" autocapitalize="off" autocomplete="off">
                 <button type="button" class="btn btn-primary" id="groq-go">Unlock AI fixes</button>
