@@ -12,7 +12,7 @@ const state = {
   tokenLogin: "",
   fetchedRepos: [], // everything the API returned, forks included
   repos: [],        // working set after the fork filter
-  excludeForks: true,
+  excludeForks: false, // default off; never persisted, always read from the checkbox
   selected: new Set(),
   results: [],      // audit results
 };
@@ -272,6 +272,9 @@ async function loadRepos() {
     return;
   }
   document.getElementById("picker-retry").hidden = false;
+  // Always read the live checkbox: the preference is never saved anywhere,
+  // so the working set must match what the user currently sees.
+  state.excludeForks = document.getElementById("exclude-forks").checked;
   applyForkFilter();
   if (!state.repos.length) {
     list.innerHTML = "";

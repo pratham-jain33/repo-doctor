@@ -103,6 +103,9 @@ V('state.selected.clear()');
 for (let i = 0; i < 30; i++) V(`toggleRepo("repo-${i}", true)`);
 check("free tier again: capped at 25", V("state.selected.size") === 25);
 
+// 8b. exclude-forks defaults to OFF and is never persisted
+check("excludeForks defaults to false", V("state.excludeForks") === false);
+
 // 9. exclude-forks drops forks from the working set AND the selection
 V(`state.fetchedRepos = ${JSON.stringify([
   {name:"keep", fork:false}, {name:"forked", fork:true}
