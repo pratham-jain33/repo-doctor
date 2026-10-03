@@ -215,25 +215,24 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .result-link svg { width: 14px; height: 14px; }
 
 /* ---------- connections ---------- */
-.connections { max-width: 720px; margin: 1.4rem auto 0; }
-.connections-title { display: flex; align-items: center; justify-content: center; gap: 0.55rem; font-size: 0.95rem; color: var(--muted); font-weight: 600; margin-bottom: 0.65rem; }
-.local-chip { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); border: 1px solid var(--line); border-radius: 999px; padding: 0.12rem 0.55rem; }
-.connections-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
-.conn-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.85rem 1rem; display: flex; flex-direction: column; }
+.connections { max-width: 720px; margin: 1rem auto 0; }
+.connections-title { text-align: center; font-size: 0.85rem; color: var(--faint); font-weight: 600; margin-bottom: 0.45rem; }
+.connections-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.conn-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.7rem 0.85rem; display: flex; flex-direction: column; }
 .conn-box.conn-groq { border-color: var(--amber-dim); background: linear-gradient(180deg, rgba(251,191,36,0.07), rgba(251,191,36,0.015)); }
-.conn-box h4 { display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; margin-bottom: 0.3rem; }
-.conn-box h4 svg { width: 16px; height: 16px; color: var(--amber); }
-.conn-desc { font-size: 0.83rem; margin-bottom: 0.65rem; }
+.conn-box h4 { display: flex; align-items: center; gap: 0.45rem; font-size: 0.9rem; margin-bottom: 0.2rem; }
+.conn-box h4 svg { width: 15px; height: 15px; color: var(--amber); }
+.conn-desc { font-size: 0.8rem; margin-bottom: 0.45rem; }
 .conn-form { margin-top: auto; }
 .conn-input { max-width: none; margin: 0; gap: 0.5rem; }
-.connections .input-row input { flex: 1; min-width: 0; padding: 0.7rem 0.9rem; font-size: 0.9rem; background: var(--bg); }
+.connections .input-row input { flex: 1; min-width: 0; padding: 0.55rem 0.8rem; font-size: 0.88rem; background: var(--bg); }
 .connections .input-row input::placeholder { color: var(--faint); }
-.conn-input .btn { padding: 0.7rem 1rem; font-size: 0.88rem; white-space: nowrap; }
+.conn-input .btn { padding: 0.55rem 0.9rem; font-size: 0.85rem; white-space: nowrap; }
 .conn-box .token-row { margin-top: 0.5rem; }
 .conn-box .check { font-size: 0.8rem; }
 .conn-box .token-active { padding: 0.7rem 0.85rem; margin-top: auto; }
 .conn-box .token-active-info .muted { padding-left: 0; }
-.conn-note { text-align: center; margin-top: 0.65rem; font-size: 0.8rem; }
+.conn-note { text-align: center; margin-top: 0.5rem; font-size: 0.78rem; }
 
 /* ---------- AI fixes ---------- */
 .keys-hint { display: flex; align-items: center; gap: 0.8rem; background: #1c1608; border: 1px solid var(--amber-dim); border-radius: var(--radius); padding: 0.9rem 1.1rem; margin-bottom: 1.2rem; }
