@@ -794,7 +794,7 @@ async function groqChat(system, user) {
 
 function buildFixPrompt(ctx) {
   const system = `You are repo-doctor's README writer. You reply with ONLY a JSON object, no markdown fences, no commentary:
-{"readme": "the full README.md", "description": "one line", "topics": ["t1", "t2"]}
+{"readme": "the full README.md", "description": "one line", "topics": ["t1", "t2"], "website": "https://..."}
 
 README structure — use these sections in this order, skipping any you cannot fill truthfully:
 # Title
@@ -816,7 +816,8 @@ ${ATTRIBUTION_LINE}
 (The blank lines matter: without them GitHub turns your last paragraph into a giant heading.)
 
 "description": one honest line, no trailing period, under 120 characters.
-"topics": 1 to 5 items, lowercase, hyphens instead of spaces.`;
+"topics": 1 to 5 items, lowercase, hyphens instead of spaces.
+"website": the live demo or docs URL, copied EXACTLY as it appears in the files or existing README given (package.json "homepage", a demo link, a docs site). Never invent, guess, or normalize a URL. If you cannot see one, use "".`;
 
   const user = `Repo: ${ctx.repo.name} by ${ctx.owner}
 GitHub description now: ${ctx.repo.description || "(empty)"}
@@ -861,10 +862,16 @@ function parseFixJson(raw) {
     // heading and renders the last paragraph as a giant heading.
     readme = readme.replace(/\n\n?---\n\n?\*Created with \[repo-doctor\][\s\S]*$/, "").trim();
     readme += `\n\n---\n\n${ATTRIBUTION_LINE}\n`;
+    let website = String(d.website || "").trim();
+    // The model must copy a URL it can see, never invent one. Reject anything
+    // that is not a plausible absolute URL, including bare github.com repo
+    // links (the repo URL itself is not a homepage).
+    if (!/^https?:\/\/\S+$/i.test(website) || /^https?:\/\/(www\.)?github\.com\//i.test(website)) website = "";
     return {
       readme,
       description: String(d.description || "").trim().slice(0, 140),
       topics: Array.isArray(d.topics) ? d.topics.map((t) => String(t).trim().toLowerCase().replace(/\s+/g, "-")).filter(Boolean).slice(0, 5) : [],
+      website,
     };
   } catch (e) {
     throw { type: "badjson" };
@@ -1046,7 +1053,8 @@ function renderFixPreview(name, kinds, ctx, data, work) {
     ${kinds.about ? `<div class="fix-fields">
       <label>About description<input data-f="description" value="${esc(data.description)}" maxlength="140"></label>
       <label>Topics, comma separated<input data-f="topics" value="${esc(data.topics.join(", "))}"></label>
-      <label>Website<input data-f="homepage" value="${esc(ctx.repo.homepage || "")}" placeholder="https://..."></label>
+      <label>Website<input data-f="homepage" value="${esc(data.website || ctx.repo.homepage || "")}" placeholder="https://..."></label>
+      ${(!data.website && !ctx.repo.homepage) ? `<p class="fix-note">The AI couldn't find a live URL in the repo files — paste your demo or docs link here if you have one.</p>` : ""}
     </div>` : ""}
     <div class="fix-toggles">${toggles}</div>
     <div class="fix-actions">

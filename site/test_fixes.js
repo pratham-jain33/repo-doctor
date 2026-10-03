@@ -104,6 +104,17 @@ check("footer --- has blank line after it", /---\n\n\*Created with/.test(good));
 const oldf = pj({ readme: "# Hi\nSome text.\n---\n*Created with [repo-doctor](https://prathamjain.com/projects/repo-doctor)*", description: "d", topics: [] }).readme;
 check("old footer format stripped and fixed", (oldf.match(/Created with \[repo-doctor\]/g) || []).length === 1 && /\n\n---\n\n\*Created with/.test(oldf));
 
+// 3b. website field: copied from evidence, never invented
+const w1 = pj({ readme: "# Hi", description: "d", topics: [], website: "https://demo.example.com" }).website;
+check("valid website kept", w1 === "https://demo.example.com");
+const w2 = pj({ readme: "# Hi", description: "d", topics: [], website: "not a url" }).website;
+check("non-url website rejected", w2 === "");
+const w3 = pj({ readme: "# Hi", description: "d", topics: [], website: "https://github.com/pratham-jain33/keysync" }).website;
+check("github repo url rejected as website", w3 === "");
+const w4 = pj({ readme: "# Hi", description: "d", topics: [] }).website;
+check("missing website defaults to empty", w4 === "");
+check("prompt asks for website from evidence", prompt.system.includes("\"website\"") && prompt.system.includes("Never invent"));
+
 // 4. markdown preview renderer
 const html = V(`mdToHtml('# Title\\n\\nHello **bold** and \`code\`.\\n\\n- one\\n- two\\n\\n[link](https://x.com)\\n\\n---\\n\\n\`\`\`\\ncode()\\n\`\`\`')`);
 check("h1 rendered", html.includes("<h1>Title</h1>"));
