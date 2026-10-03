@@ -1,0 +1,92 @@
+/* Verifies the 25-repo selection cap in app.js using a DOM stub.
+   Run: node test_cap.js */
+const vm = require("vm");
+const fs = require("fs");
+const checks = require("./checks.js");
+
+function makeEl(id) {
+  return {
+    id,
+    hidden: true,
+    textContent: "",
+    innerHTML: "",
+    disabled: false,
+    value: "",
+    checked: false,
+    classList: { toggle() {}, add() {}, remove() {} },
+    _listeners: {},
+    addEventListener(type, fn) { this._listeners[type] = fn; },
+    appendChild() {},
+    querySelectorAll() { return []; },
+    querySelector() { return null; },
+    click() {},
+  };
+}
+
+const els = {};
+const sandbox = {
+  console,
+  performance: { now: () => 0 },
+  requestAnimationFrame: () => {},
+  CSS: { escape: (s) => s },
+  fetch: async () => { throw { type: "network" }; },
+  URL: { createObjectURL: () => "", revokeObjectURL: () => {} },
+  Blob: function () {},
+  ...checks,
+};
+sandbox.window = sandbox; // icons() checks window.lucide
+sandbox.document = {
+  getElementById: (id) => (els[id] = els[id] || makeEl(id)),
+  querySelectorAll: () => [],
+  querySelector: () => null,
+  createElement: () => makeEl("dyn"),
+};
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync("./app.js", "utf8"), sandbox);
+const V = (expr) => vm.runInContext(expr, sandbox);
+
+let pass = 0, fail = 0;
+function check(name, cond) {
+  if (cond) pass++;
+  else { fail++; console.log("FAIL:", name); }
+}
+
+// seed 30 fake repos
+V(`state.repos = ${JSON.stringify(Array.from({ length: 30 }, (_, i) => ({
+  name: "repo-" + i, fork: false, description: "", stargazers_count: 0,
+  pushed_at: new Date().toISOString(), html_url: "", topics: [],
+  homepage: "", license: null,
+})))}`);
+
+// 1. individual toggles can never exceed 25
+for (let i = 0; i < 30; i++) V(`toggleRepo("repo-${i}", true)`);
+check("30 toggles -> exactly 25 selected", V("state.selected.size") === 25);
+check("repo-29 rejected at cap", V('state.selected.has("repo-29")') === false);
+
+// 2. deselect one, select another -> back to 25, never 26
+V('toggleRepo("repo-0", false)');
+check("deselect works", V("state.selected.size") === 24);
+V('toggleRepo("repo-29", true)');
+check("reselect fills to 25", V("state.selected.size") === 25);
+V('toggleRepo("repo-0", true)');
+check("26th still rejected", V("state.selected.size") === 25);
+
+// 3. select-all respects the cap
+V("state.selected.clear()");
+els["select-all"]._listeners.click();
+check("select-all -> exactly 25", V("state.selected.size") === 25);
+
+// 4. clear works
+els["select-none"]._listeners.click();
+check("clear empties", V("state.selected.size") === 0);
+
+// 5. run button disabled with nothing selected
+check("run disabled at 0", els["run-audit"].disabled === true);
+V('toggleRepo("repo-1", true)');
+check("run enabled at 1", els["run-audit"].disabled === false);
+
+// 6. counter text reflects the cap
+check("counter shows 1 / 25", els["select-counter"].textContent === "1 / 25 selected");
+
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

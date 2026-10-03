@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>repo-doctor: audit your GitHub consistency</title>
+<meta name="description" content="Scan your public GitHub repos and get the exact fix list for a consistent profile. No sign-up, no token, runs in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="#" id="brand-home">
+      <i data-lucide="stethoscope"></i>
+      <span>repo-doctor</span>
+    </a>
+    <nav class="topnav">
+      <a href="#how">How it works</a>
+      <a href="#standard">The standard</a>
+      <a href="https://github.com/pratham-jain33/repo-doctor" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ SCREEN: HOME ============ -->
+  <section id="screen-home" class="screen">
+    <div class="hero">
+      <div class="hero-badge"><i data-lucide="sparkles"></i> free forever, no sign-up</div>
+      <h1>Your GitHub looks abandoned.<br><span class="hl">Fix it in an afternoon.</span></h1>
+      <p class="lede">repo-doctor scans your public repos and tells you exactly what breaks the house standard: missing READMEs, empty descriptions, no topics, no license. Worst repos first.</p>
+
+      <form id="username-form" class="username-form" autocomplete="off">
+        <div class="input-row">
+          <i data-lucide="at-sign" class="input-icon"></i>
+          <input id="username-input" type="text" placeholder="your github username" spellcheck="false" autocapitalize="off">
+          <button type="submit" class="btn btn-primary">Audit my repos <i data-lucide="arrow-right"></i></button>
+        </div>
+        <p class="form-error" id="username-error" hidden></p>
+      </form>
+
+      <p class="trust"><i data-lucide="shield-check"></i> No token needed for public repos. Your browser talks straight to GitHub's API. Nothing is stored, nothing is sent anywhere else.</p>
+    </div>
+
+    <div id="how" class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Drop your username</h3>
+        <p>We fetch your public repo list. That is the only thing we ask for.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Pick up to 25 repos</h3>
+        <p>Choose what gets audited. The cap keeps GitHub's hourly limit happy.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Get the fix list</h3>
+        <p>Worst repos first, with a score. Fix, re-run, watch it climb.</p>
+      </div>
+    </div>
+
+    <div id="standard" class="standard">
+      <h2>The house standard</h2>
+      <p class="muted">Every repo gets graded against this. No surprises.</p>
+      <div class="standard-grid">
+        <div class="standard-card">
+          <h3><i data-lucide="file-text"></i> README</h3>
+          <ul>
+            <li>Title and a real one-line description</li>
+            <li>Motivation, tech stack, features</li>
+            <li>Installation and how-to-use guides</li>
+          </ul>
+        </div>
+        <div class="standard-card">
+          <h3><i data-lucide="panel-right"></i> About box</h3>
+          <ul>
+            <li>Description filled in</li>
+            <li>Website link set</li>
+            <li>Topics and tags added</li>
+          </ul>
+        </div>
+        <div class="standard-card">
+          <h3><i data-lucide="scale"></i> License</h3>
+          <ul>
+            <li>A LICENSE file in the repo root</li>
+            <li>So the badge shows on your repo page</li>
+          </ul>
+        </div>
+      </div>
+      <p class="muted small">Contribute, Credits and License sections are skipped on purpose. GitHub already renders those natively.</p>
+    </div>
+  </section>
+
+  <!-- ============ SCREEN: PICKER ============ -->
+  <section id="screen-picker" class="screen" hidden>
+    <button class="btn btn-ghost back" id="picker-back"><i data-lucide="arrow-left"></i> change username</button>
+    <h2>Which repos get audited?</h2>
+    <p class="muted"><span id="repo-count"></span> public repos found. Pick up to <strong>25</strong>.</p>
+
+    <div class="picker-toolbar">
+      <div class="counter" id="select-counter">0 / 25 selected</div>
+      <div class="picker-actions">
+        <button class="btn btn-ghost" id="select-all">Select all</button>
+        <button class="btn btn-ghost" id="select-none">Clear</button>
+        <label class="check"><input type="checkbox" id="hide-forks"> hide forks</label>
+      </div>
+    </div>
+    <div class="picker-search">
+      <i data-lucide="search" class="input-icon"></i>
+      <input id="picker-filter" type="text" placeholder="filter repos...">
+    </div>
+    <p class="cap-note" id="cap-note" hidden><i data-lucide="info"></i> 25 repo cap reached. Deselect one to pick another.</p>
+
+    <div id="repo-list" class="repo-list"></div>
+    <div class="picker-empty" id="picker-empty" hidden>
+      <i data-lucide="package-open"></i>
+      <p>No repos match that filter.</p>
+    </div>
+
+    <div class="picker-footer">
+      <button class="btn btn-primary btn-big" id="run-audit" disabled>Run the audit <i data-lucide="arrow-right"></i></button>
+    </div>
+
+    <div class="error-card" id="picker-error" hidden>
+      <i data-lucide="alert-triangle"></i>
+      <div>
+        <h3 id="picker-error-title">Something broke</h3>
+        <p id="picker-error-msg"></p>
+        <button class="btn btn-ghost" id="picker-retry">Try again</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SCREEN: AUDIT ============ -->
+  <section id="screen-audit" class="screen" hidden>
+    <h2>Auditing <span id="audit-total"></span> repos...</h2>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <p class="muted" id="progress-label">starting...</p>
+    <div id="audit-log" class="audit-log"></div>
+    <div class="error-card" id="audit-error" hidden>
+      <i data-lucide="alert-triangle"></i>
+      <div>
+        <h3>Hit GitHub's rate limit</h3>
+        <p id="audit-error-msg"></p>
+        <button class="btn btn-ghost" id="audit-retry">Retry</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SCREEN: RESULTS ============ -->
+  <section id="screen-results" class="screen" hidden>
+    <div class="results-head">
+      <div>
+        <h2>Results for <span id="results-user"></span></h2>
+        <p class="muted" id="results-summary"></p>
+      </div>
+      <div class="score-wrap">
+        <svg class="score-ring" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" class="ring-bg"/>
+          <circle cx="60" cy="60" r="52" class="ring-fg" id="score-arc"/>
+        </svg>
+        <div class="score-num"><span id="score-value">0</span><small>/100</small></div>
+      </div>
+    </div>
+
+    <div class="results-toolbar">
+      <div class="picker-search">
+        <i data-lucide="search" class="input-icon"></i>
+        <input id="results-filter" type="text" placeholder="filter repos...">
+      </div>
+      <div class="results-actions">
+        <label class="check"><input type="checkbox" id="results-hide-clean"> hide clean repos</label>
+        <button class="btn btn-ghost" id="download-report"><i data-lucide="download"></i> report.md</button>
+        <button class="btn btn-primary" id="audit-again"><i data-lucide="rotate-ccw"></i> Audit again</button>
+      </div>
+    </div>
+
+    <div id="results-list" class="results-list"></div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap footer-inner">
+    <p>Built by <a href="https://github.com/pratham-jain33" target="_blank" rel="noopener">Pratham Jain</a>. Your username never leaves this page except to ask GitHub's API.</p>
+    <p class="muted small">Public repos only. GitHub allows 60 requests an hour without a token, hence the 25 repo cap.</p>
+  </div>
+</footer>
+
+<script src="checks.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
