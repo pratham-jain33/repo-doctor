@@ -174,6 +174,23 @@ async function connectToken(token, remember) {
   }
   state.tokenLogin = me.login;
   state.username = me.login;
+  // A token without the `repo` scope passes /user just fine but gets an
+  // empty list from /user/repos. Catch it here with a clear message
+  // instead of dumping the user on a confusing empty picker later.
+  try {
+    const probe = await gh("/user/repos?per_page=1");
+    if (!probe.length) {
+      const pubProbe = await gh(`/users/${encodeURIComponent(me.login)}/repos?per_page=1`);
+      if (pubProbe.length) throw { type: "scopeless" };
+    }
+  } catch (e) {
+    state.token = "";
+    err.textContent = e.type === "scopeless"
+      ? "Connected, but this token can't see your repositories. Create a classic token with the 'repo' scope checked and try again."
+      : "Could not verify the token. Check your connection and try again.";
+    err.hidden = false;
+    return;
+  }
   if (remember) {
     try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
   }
