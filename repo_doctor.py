@@ -88,9 +88,12 @@ def get_all_repos(owner):
     if proc.returncode != 0:
         sys.exit(f"error: `gh repo list` failed: {proc.stderr.strip()}")
     try:
-        return json.loads(proc.stdout)
+        repos = json.loads(proc.stdout)
     except json.JSONDecodeError:
         sys.exit("error: could not parse `gh repo list` output")
+    # The owner/owner repo is the special profile repo (its README is the
+    # GitHub profile page, not a project), so it is never audited.
+    return [r for r in repos if r["name"].lower() != owner.lower()]
 
 
 def get_repo_meta(owner, name):

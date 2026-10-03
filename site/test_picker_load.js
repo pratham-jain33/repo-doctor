@@ -116,6 +116,15 @@ function stubFetch(repos) {
   check("counter shows 43 / 43 selected",
     els["select-counter"].textContent === "43 / 43 selected");
 
+  // 5. the username/username profile repo is special: never picked up, for anyone.
+  V('state.repos = []; state.fetchedRepos = []; state.username = "tester"; state.selected.clear(); state.token = ""; state.tokenLogin = ""');
+  els["exclude-forks"].checked = false;
+  stubFetch([...fakeRepos(5), { name: "tester", fork: false, private: false, description: "profile", stargazers_count: 0, pushed_at: new Date().toISOString() }]);
+  await V("loadRepos()");
+  check("profile repo excluded from working set", V("state.repos.length") === 5);
+  check("profile repo not in fetched set", V('!state.fetchedRepos.some((r) => r.name === "tester")'));
+  check("count excludes profile repo", els["repo-count"].textContent === 5);
+
   console.log(`${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

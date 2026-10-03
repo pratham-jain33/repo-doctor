@@ -91,7 +91,10 @@ async function fetchAllRepos(username) {
     page++;
     if (page > 10) break; // sanity: nobody needs 1000 repos audited
   }
-  return repos;
+  // The username/username repo is the special profile repo: its README is the
+  // GitHub profile page, not a project. It plays by different rules, so it is
+  // never fetched into the picker, audited, or fixed — for anyone.
+  return repos.filter((r) => r.name.toLowerCase() !== username.toLowerCase());
 }
 
 async function fetchReadme(owner, repo) {
