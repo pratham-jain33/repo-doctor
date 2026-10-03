@@ -932,6 +932,9 @@ async function openFixPR(owner, name, files, title) {
       message: title,
       content: toB64(f.content),
       branch,
+      // The PR goes out under the user's token (their permission), but the
+      // commits themselves are stamped repo-doctor.
+      author: { name: "repo-doctor", email: "repo-doctor@prathamjain.com" },
       ...(sha ? { sha } : {}),
     });
   }
