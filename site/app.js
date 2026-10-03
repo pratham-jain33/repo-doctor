@@ -635,9 +635,10 @@ async function startAudit(resume) {
 
     const meta = auditRepoMeta(repo);
     const rd = auditReadme(readme);
-    const pr = auditProtection(isProtected);
-    const missing = [...meta.missing, ...rd.missing, ...pr.missing];
-    const warnings = [...meta.warnings, ...rd.warnings, ...pr.warnings];
+    const prot = auditProtection(isProtected);
+    // Protection is the topmost priority check: it leads the missing list.
+    const missing = [...prot.missing, ...meta.missing, ...rd.missing];
+    const warnings = [...meta.warnings, ...rd.warnings, ...prot.warnings];
     if (repoNote) warnings.push(repoNote);
     if (protNote) warnings.push(protNote);
     state.results.push({ name, url: repo.html_url, fork: repo.fork, missing, warnings });
@@ -712,8 +713,11 @@ function renderResultsList(sorted) {
     const pills = r.missing.length === 0 && r.warnings.length === 0
       ? `<span class="pill cleanp">clean</span>`
       : `${r.missing.length ? `<span class="pill miss">${r.missing.length} missing</span>` : ""}${r.warnings.length ? `<span class="pill warnp">${r.warnings.length} warnings</span>` : ""}`;
+    const issueItem = (m) => m.startsWith("protection:")
+      ? `<li class="missing priority"><i data-lucide="shield-alert"></i><span>${esc(m)}<em class="priority-tag">priority</em></span></li>`
+      : `<li class="missing"><i data-lucide="x-circle"></i><span>${esc(m)}</span></li>`;
     const issues = [
-      ...r.missing.map((m) => `<li class="missing"><i data-lucide="x-circle"></i><span>${esc(m)}</span></li>`),
+      ...r.missing.map(issueItem),
       ...r.warnings.map((w) => `<li class="warning"><i data-lucide="alert-circle"></i><span>${esc(w)}</span></li>`),
     ].join("") || `<li class="warning"><i data-lucide="check-circle-2"></i><span>Nothing to fix. This repo clears the house standard.</span></li>`;
     return `
@@ -1085,10 +1089,10 @@ async function startFix(name, kinds, panel) {
 
 function renderFixPreview(name, kinds, ctx, data, work) {
   const toggles = [
+    kinds.protection ? `<label class="check"><input type="checkbox" data-t="protection" checked><span class="custom-check"><i data-lucide="check"></i></span> Protect default branch</label>` : "",
     kinds.readme ? `<label class="check"><input type="checkbox" data-t="readme" checked><span class="custom-check"><i data-lucide="check"></i></span> README via PR</label>` : "",
     kinds.about ? `<label class="check"><input type="checkbox" data-t="about" checked><span class="custom-check"><i data-lucide="check"></i></span> Apply About box</label>` : "",
     kinds.license ? `<label class="check"><input type="checkbox" data-t="license" checked><span class="custom-check"><i data-lucide="check"></i></span> MIT LICENSE via PR</label>` : "",
-    kinds.protection ? `<label class="check"><input type="checkbox" data-t="protection" checked><span class="custom-check"><i data-lucide="check"></i></span> Protect default branch</label>` : "",
   ].join("");
   work.innerHTML = `
     ${kinds.readme ? `<h4 class="fix-title" style="margin-top:0.4rem">README preview</h4><div class="md-preview">${mdToHtml(data.readme)}</div>` : ""}

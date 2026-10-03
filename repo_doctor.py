@@ -181,6 +181,13 @@ def audit_repo(owner, repo):
         return {"name": name, "url": repo["url"], "error": err,
                 "missing": missing, "warnings": warnings}
 
+    # --- Branch protection (topmost priority check) ---
+    prot, err = get_branch_protected(owner, name, meta.get("default_branch") or "main")
+    if err:
+        warnings.append("protection: could not be checked")
+    elif prot is False:
+        missing.append("protection: default branch is not protected")
+
     # --- About box (the layout from the screenshot) ---
     if not (meta.get("description") or "").strip():
         missing.append("about: description is empty")
@@ -190,13 +197,6 @@ def audit_repo(owner, repo):
         missing.append("about: no topics/tags")
     if not meta.get("license") or meta["license"] in ("NOASSERTION",):
         missing.append("license: no LICENSE file detected")
-
-    # --- Branch protection ---
-    prot, err = get_branch_protected(owner, name, meta.get("default_branch") or "main")
-    if err:
-        warnings.append("protection: could not be checked")
-    elif prot is False:
-        missing.append("protection: default branch is not protected")
 
     # --- README ---
     readme, err = get_readme(owner, name)

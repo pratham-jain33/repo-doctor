@@ -211,6 +211,8 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .issue-list li.missing svg { color: var(--red); }
 .issue-list li.warning svg { color: var(--amber); }
 .issue-list li.missing { color: var(--ink); }
+.issue-list li.priority svg { color: var(--amber); }
+.priority-tag { font-style: normal; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #14100a; background: var(--amber); border-radius: 999px; padding: 0.12rem 0.5rem; margin-left: 0.5rem; vertical-align: 1px; }
 .result-link { font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.35rem; }
 .result-link svg { width: 14px; height: 14px; }
 
