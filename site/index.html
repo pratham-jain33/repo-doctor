@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -16,7 +16,7 @@
 <header class="topbar">
   <div class="wrap topbar-inner">
     <a class="brand" href="#" id="brand-home">
-      <i data-lucide="stethoscope"></i>
+      <img src="logo.svg" class="brand-logo" alt="repo-doctor logo">
       <span>repo-doctor</span>
     </a>
     <nav class="topnav">
@@ -46,6 +46,27 @@
       </form>
 
       <p class="trust"><i data-lucide="shield-check"></i> No token needed for public repos. Your browser talks straight to GitHub's API. Nothing is stored, nothing is sent anywhere else.</p>
+
+      <div class="token-box">
+        <button class="token-toggle" id="token-toggle" type="button"><i data-lucide="key-round"></i> Have a token? Audit private repos too</button>
+        <div class="token-form" id="token-form" hidden>
+          <p class="muted small">Create a <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">classic personal access token</a> with the <strong>repo</strong> scope. It stays in this browser and is only ever sent to api.github.com. Delete it from GitHub settings whenever you are done.</p>
+          <div class="input-row">
+            <i data-lucide="lock" class="input-icon"></i>
+            <input id="token-input" type="password" placeholder="paste token here" spellcheck="false" autocapitalize="off" autocomplete="off">
+            <button type="button" class="btn btn-primary" id="token-go">Connect <i data-lucide="arrow-right"></i></button>
+          </div>
+          <div class="token-row">
+            <label class="check"><input type="checkbox" id="token-remember" checked> remember in this browser</label>
+            <button type="button" class="btn btn-ghost btn-mini" id="token-show">show</button>
+          </div>
+          <p class="form-error" id="token-error" hidden></p>
+        </div>
+        <div class="token-active" id="token-active" hidden>
+          <p><i data-lucide="check"></i> Connected as <strong id="token-user"></strong>. Private repos included, up to 100 per audit.</p>
+          <button type="button" class="btn btn-ghost" id="token-forget"><i data-lucide="trash-2"></i> forget token</button>
+        </div>
+      </div>
     </div>
 
     <div id="how" class="steps">
@@ -102,7 +123,7 @@
   <section id="screen-picker" class="screen" hidden>
     <button class="btn btn-ghost back" id="picker-back"><i data-lucide="arrow-left"></i> change username</button>
     <h2>Which repos get audited?</h2>
-    <p class="muted"><span id="repo-count"></span> public repos found. Pick up to <strong>25</strong>.</p>
+    <p class="muted"><span id="repo-count"></span> repos found. Pick up to <strong id="pick-cap">25</strong>. <span id="mode-line"></span></p>
 
     <div class="picker-toolbar">
       <div class="counter" id="select-counter">0 / 25 selected</div>
@@ -116,7 +137,7 @@
       <i data-lucide="search" class="input-icon"></i>
       <input id="picker-filter" type="text" placeholder="filter repos...">
     </div>
-    <p class="cap-note" id="cap-note" hidden><i data-lucide="info"></i> 25 repo cap reached. Deselect one to pick another.</p>
+    <p class="cap-note" id="cap-note" hidden><i data-lucide="info"></i> <span id="cap-note-text"></span></p>
 
     <div id="repo-list" class="repo-list"></div>
     <div class="picker-empty" id="picker-empty" hidden>
@@ -192,11 +213,12 @@
 <footer>
   <div class="wrap footer-inner">
     <p>Built by <a href="https://github.com/pratham-jain33" target="_blank" rel="noopener">Pratham Jain</a>. Your username never leaves this page except to ask GitHub's API.</p>
-    <p class="muted small">Public repos only. GitHub allows 60 requests an hour without a token, hence the 25 repo cap.</p>
+    <p class="muted small">Public repos need no token. With a token you get private repos and 100-repo audits. GitHub allows 60 requests an hour without a token, hence the 25 cap.</p>
   </div>
 </footer>
 
 <script src="checks.js"></script>
+<script src="icons.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

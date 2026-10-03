@@ -1,15 +1,23 @@
 /* repo-doctor web app. No build step, no backend.
    Browser talks directly to api.github.com. Nothing is stored anywhere. */
 
-const MAX_SELECTION = 25;
+const FREE_CAP = 25;      // unauthenticated: 60 req/hr
+const TOKEN_CAP = 100;      // with token: 5,000 req/hr, private repos visible
+const TOKEN_KEY = "repo-doctor-token";
 const API = "https://api.github.com";
 
 const state = {
   username: "",
+  token: "",
+  tokenLogin: "",
   repos: [],        // raw GitHub repo objects
   selected: new Set(),
   results: [],      // audit results
 };
+
+function maxSelection() {
+  return state.token ? TOKEN_CAP : FREE_CAP;
+}
 
 /* ---------------- helpers ---------------- */
 
@@ -20,7 +28,7 @@ function esc(s) {
 }
 
 function icons() {
-  if (window.lucide) lucide.createIcons();
+  if (window.paintIcons) paintIcons(); // icons.js, generated via icon-mcp
 }
 
 function showScreen(id) {
@@ -42,14 +50,15 @@ function timeAgo(iso) {
 /* ---------------- GitHub API (no token) ---------------- */
 
 async function gh(path, raw = false) {
+  const headers = { Accept: raw ? "application/vnd.github.raw" : "application/vnd.github+json" };
+  if (state.token) headers.Authorization = "Bearer " + state.token;
   let res;
   try {
-    res = await fetch(API + path, {
-      headers: { Accept: raw ? "application/vnd.github.raw" : "application/vnd.github+json" },
-    });
+    res = await fetch(API + path, { headers });
   } catch (e) {
     throw { type: "network" };
   }
+  if (res.status === 401) throw { type: "badauth" };
   if (res.status === 403 && res.headers.get("X-RateLimit-Remaining") === "0") {
     const reset = new Date(Number(res.headers.get("X-RateLimit-Reset")) * 1000);
     throw { type: "ratelimit", reset };
@@ -62,10 +71,12 @@ async function gh(path, raw = false) {
 async function fetchAllRepos(username) {
   const repos = [];
   let page = 1;
+  // With a token on your own account, /user/repos includes private repos.
+  const base = state.token && state.tokenLogin.toLowerCase() === username.toLowerCase()
+    ? "/user/repos"
+    : `/users/${encodeURIComponent(username)}/repos`;
   for (;;) {
-    const batch = await gh(
-      `/users/${encodeURIComponent(username)}/repos?per_page=100&page=${page}&type=owner&sort=updated`
-    );
+    const batch = await gh(`${base}?per_page=100&page=${page}&type=owner&sort=updated`);
     repos.push(...batch);
     if (batch.length < 100) break;
     page++;
@@ -75,11 +86,28 @@ async function fetchAllRepos(username) {
 }
 
 async function fetchReadme(owner, repo) {
+  // List the repo root instead of hitting /readme directly. The listing
+  // returns HTTP 200 even when no README exists, so missing READMEs no
+  // longer spray 404s into the console. The file itself is then downloaded
+  // raw, which does not count against the API rate limit.
+  const enc = encodeURIComponent;
+  let listing;
   try {
-    return await gh(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/readme`, true);
+    listing = await gh(`/repos/${enc(owner)}/${enc(repo)}/contents/`);
   } catch (e) {
-    if (e.type === "notfound") return null;
+    if (e.type === "notfound") return null; // empty repo
     throw e;
+  }
+  if (!Array.isArray(listing)) return null;
+  const cands = listing.filter((f) => f.type === "file" && /^readme($|\.)/i.test(f.name));
+  const entry = cands.find((f) => /\.md$/i.test(f.name)) || cands[0];
+  if (!entry || !entry.download_url) return null;
+  try {
+    const res = await fetch(entry.download_url);
+    if (!res.ok) return null;
+    return await res.text();
+  } catch (e) {
+    return null;
   }
 }
 
@@ -108,6 +136,94 @@ document.getElementById("brand-home").addEventListener("click", (e) => {
   showScreen("screen-home");
 });
 
+/* ---------------- token system ---------------- */
+
+function showTokenActive() {
+  document.getElementById("token-form").hidden = true;
+  document.getElementById("token-toggle").style.display = "none";
+  document.getElementById("token-active").hidden = false;
+  document.getElementById("token-user").textContent = "@" + state.tokenLogin;
+  icons();
+}
+
+function forgetToken() {
+  state.token = "";
+  state.tokenLogin = "";
+  try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+  document.getElementById("token-input").value = "";
+  document.getElementById("token-active").hidden = true;
+  document.getElementById("token-toggle").style.display = "";
+}
+
+async function connectToken(token, remember) {
+  const err = document.getElementById("token-error");
+  err.hidden = true;
+  state.token = token;
+  let me;
+  try {
+    me = await gh("/user");
+  } catch (e) {
+    state.token = "";
+    err.textContent = e.type === "badauth"
+      ? "That token was rejected. Check it and try again."
+      : "Could not reach GitHub. Check your connection.";
+    err.hidden = false;
+    return;
+  }
+  state.tokenLogin = me.login;
+  state.username = me.login;
+  if (remember) {
+    try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
+  }
+  showTokenActive();
+  state.selected = new Set();
+  state.results = [];
+  showScreen("screen-picker");
+  await loadRepos();
+}
+
+document.getElementById("token-toggle").addEventListener("click", () => {
+  const f = document.getElementById("token-form");
+  f.hidden = !f.hidden;
+  icons();
+});
+document.getElementById("token-go").addEventListener("click", () => {
+  const t = document.getElementById("token-input").value.trim();
+  const err = document.getElementById("token-error");
+  if (!t) {
+    err.textContent = "Paste a token first.";
+    err.hidden = false;
+    return;
+  }
+  connectToken(t, document.getElementById("token-remember").checked);
+});
+document.getElementById("token-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("token-go").click();
+});
+document.getElementById("token-forget").addEventListener("click", forgetToken);
+document.getElementById("token-show").addEventListener("click", (e) => {
+  const inp = document.getElementById("token-input");
+  const show = inp.type === "password";
+  inp.type = show ? "text" : "password";
+  e.target.textContent = show ? "hide" : "show";
+});
+
+// Restore a remembered token on load and validate it silently.
+(async function initToken() {
+  let saved = null;
+  try { saved = localStorage.getItem(TOKEN_KEY); } catch (e) {}
+  if (!saved) return;
+  state.token = saved;
+  try {
+    const me = await gh("/user");
+    state.tokenLogin = me.login;
+    showTokenActive();
+  } catch (e) {
+    state.token = "";
+    try { localStorage.removeItem(TOKEN_KEY); } catch (e2) {}
+  }
+})();
+
 /* ---------------- screen 2: picker ---------------- */
 
 async function loadRepos() {
@@ -135,6 +251,10 @@ async function loadRepos() {
   }
   document.getElementById("picker-retry").hidden = false;
   document.getElementById("repo-count").textContent = state.repos.length;
+  document.getElementById("pick-cap").textContent = maxSelection();
+  document.getElementById("mode-line").textContent = state.token
+    ? `Token connected as @${state.tokenLogin}: private repos included, 5,000 requests/hr.`
+    : "Public repos only.";
   renderPicker();
 }
 
@@ -147,7 +267,9 @@ function showPickerError(e) {
     msg.textContent = `No GitHub user called "${state.username}". Check the spelling and try again.`;
   } else if (e.type === "ratelimit") {
     title.textContent = "GitHub rate limit hit";
-    msg.textContent = `Unauthenticated requests are capped at 60 an hour. Try again after ${e.reset.toLocaleTimeString()}.`;
+    msg.textContent = state.token
+      ? `Even the token allowance ran out. Try again after ${e.reset.toLocaleTimeString()}.`
+      : `Unauthenticated requests are capped at 60 an hour. Connect a token on the home page for 5,000/hr, or try again after ${e.reset.toLocaleTimeString()}.`;
   } else {
     title.textContent = "Could not reach GitHub";
     msg.textContent = "Check your connection and try again.";
@@ -172,17 +294,19 @@ function visibleRepos() {
 function renderPicker() {
   const list = document.getElementById("repo-list");
   const repos = visibleRepos();
+  const cap = maxSelection();
   document.getElementById("picker-empty").hidden = repos.length > 0;
-  const capped = state.selected.size >= MAX_SELECTION;
+  const capped = state.selected.size >= cap;
 
   list.innerHTML = repos.map((r) => {
     const isSel = state.selected.has(r.name);
     const disabled = !isSel && capped;
+    const badges = `${r.fork ? '<span class="badge-fork">fork</span>' : ""}${r.private ? '<span class="badge-private">private</span>' : ""}`;
     return `
     <label class="repo-row ${isSel ? "selected" : ""} ${disabled ? "capped" : ""}" data-name="${esc(r.name)}">
       <input type="checkbox" ${isSel ? "checked" : ""} ${disabled ? "disabled" : ""} data-repo="${esc(r.name)}">
       <div class="repo-info">
-        <div class="repo-name">${esc(r.name)} ${r.fork ? '<span class="badge-fork">fork</span>' : ""}</div>
+        <div class="repo-name">${esc(r.name)} ${badges}</div>
         ${r.description ? `<div class="repo-desc">${esc(r.description)}</div>` : ""}
       </div>
       <div class="repo-meta">
@@ -200,9 +324,10 @@ function renderPicker() {
 }
 
 function toggleRepo(name, want) {
+  const cap = maxSelection();
   if (want) {
-    // THE CAP: refuse to exceed MAX_SELECTION, no exceptions.
-    if (state.selected.size >= MAX_SELECTION) {
+    // THE CAP: refuse to exceed it, no exceptions.
+    if (state.selected.size >= cap) {
       renderPicker(); // re-render to snap the checkbox back off
       return;
     }
@@ -212,7 +337,7 @@ function toggleRepo(name, want) {
   }
   updateCounter();
   // Re-render only when crossing the cap boundary, so checkboxes enable/disable.
-  const capped = state.selected.size >= MAX_SELECTION;
+  const capped = state.selected.size >= cap;
   const wasCapped = document.getElementById("cap-note").hidden === false;
   if (capped !== wasCapped) renderPicker();
   else {
@@ -223,17 +348,20 @@ function toggleRepo(name, want) {
 
 function updateCounter() {
   const n = state.selected.size;
+  const cap = maxSelection();
   const counter = document.getElementById("select-counter");
-  counter.textContent = `${n} / ${MAX_SELECTION} selected`;
-  counter.classList.toggle("full", n >= MAX_SELECTION);
-  document.getElementById("cap-note").hidden = n < MAX_SELECTION;
+  counter.textContent = `${n} / ${cap} selected`;
+  counter.classList.toggle("full", n >= cap);
+  document.getElementById("cap-note").hidden = n < cap;
+  document.getElementById("cap-note-text").textContent = `${cap} repo cap reached. Deselect one to pick another.`;
   document.getElementById("run-audit").disabled = n === 0;
 }
 
 document.getElementById("select-all").addEventListener("click", () => {
   state.selected.clear();
+  const cap = maxSelection();
   for (const r of visibleRepos()) {
-    if (state.selected.size >= MAX_SELECTION) break; // cap respected
+    if (state.selected.size >= cap) break; // cap respected
     state.selected.add(r.name);
   }
   renderPicker();
@@ -272,8 +400,9 @@ document.getElementById("run-audit").addEventListener("click", async () => {
       readme = await fetchReadme(state.username, name);
     } catch (e) {
       if (e.type === "ratelimit") {
-        document.getElementById("audit-error-msg").textContent =
-          `GitHub's unauthenticated cap is 60 requests an hour. ${names.length - i} repos were not checked. Try again after ${e.reset.toLocaleTimeString()}, or audit fewer repos.`;
+        document.getElementById("audit-error-msg").textContent = state.token
+          ? `GitHub's rate limit was hit with ${names.length - i} repos left unchecked. Try again after ${e.reset.toLocaleTimeString()}.`
+          : `GitHub's unauthenticated cap is 60 requests an hour, and ${names.length - i} repos were not checked. Connect a token on the home page for 5,000/hr and private repos, or try again after ${e.reset.toLocaleTimeString()}.`;
         document.getElementById("audit-error").hidden = false;
         icons();
         break;
