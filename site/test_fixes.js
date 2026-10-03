@@ -1,0 +1,127 @@
+/* Tests for the v0.2 AI fix engine: issue->fix mapping, prompt building,
+   JSON parsing with attribution enforcement, markdown preview, base64,
+   and the MIT license text. Run: node test_fixes.js */
+const vm = require("vm");
+const fs = require("fs");
+const { TextEncoder, TextDecoder } = require("util");
+const checks = require("./checks.js");
+
+function makeEl(id) {
+  return {
+    id,
+    hidden: true,
+    textContent: "",
+    innerHTML: "",
+    disabled: false,
+    value: "",
+    checked: false,
+    style: {},
+    classList: { toggle() {}, add() {}, remove() {} },
+    _listeners: {},
+    addEventListener(type, fn) { this._listeners[type] = fn; },
+    appendChild() {},
+    querySelectorAll() { return []; },
+    querySelector() { return null; },
+    click() {},
+  };
+}
+
+const els = {};
+const sandbox = {
+  console,
+  performance: { now: () => 0 },
+  requestAnimationFrame: () => {},
+  CSS: { escape: (s) => s },
+  TextEncoder,
+  TextDecoder,
+  btoa: (s) => Buffer.from(s, "binary").toString("base64"),
+  fetch: async () => { throw { type: "network" }; },
+  URL: { createObjectURL: () => "", revokeObjectURL: () => {} },
+  Blob: function () {},
+  ...checks,
+};
+sandbox.window = sandbox;
+sandbox.document = {
+  getElementById: (id) => (els[id] = els[id] || makeEl(id)),
+  querySelectorAll: () => [],
+  querySelector: () => null,
+  createElement: () => makeEl("dyn"),
+};
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync("./app.js", "utf8"), sandbox);
+const V = (expr) => vm.runInContext(expr, sandbox);
+
+let pass = 0, fail = 0;
+function check(name, cond) {
+  if (cond) pass++;
+  else { fail++; console.log("FAIL:", name); }
+}
+
+// 1. issue -> fix mapping
+const kinds = V(`fixKinds({ missing: ["readme: README.md missing", "about: no topics/tags"], warnings: ["readme: no 'Tests' section"] })`);
+check("readme kind detected", kinds.readme === true);
+check("about kind detected", kinds.about === true);
+check("license kind absent", kinds.license === false);
+const kinds2 = V(`fixKinds({ missing: ["license: no LICENSE file detected"], warnings: [] })`);
+check("license kind detected", kinds2.license === true && kinds2.readme === false);
+const kinds3 = V(`fixKinds({ missing: [], warnings: [] })`);
+check("clean repo: no kinds", !kinds3.readme && !kinds3.about && !kinds3.license);
+
+// 2. prompt carries the house standard and the attribution, and bans the dropped sections
+const prompt = V(`buildFixPrompt({ owner: "tester", repo: { name: "demo", description: "", language: "Python", stargazers_count: 3, topics: [] }, files: ["main.py"], manifestName: "", manifestBody: "", existing: null })`);
+check("prompt has Motivation section", prompt.system.includes("## Motivation"));
+check("prompt has Installation section", prompt.system.includes("## Installation"));
+check("prompt bans Contribute section", /do NOT write Contribute/i.test(prompt.system));
+check("prompt ends README with attribution", prompt.system.includes("*Created with [repo-doctor](https://prathamjain.com/projects/repo-doctor)*"));
+check("prompt demands JSON only", prompt.system.includes("ONLY a JSON object"));
+check("user prompt includes file list", prompt.user.includes("main.py"));
+
+// 3. JSON parsing: fences stripped, attribution enforced, garbage rejected.
+// pj() passes objects through JSON.stringify twice so the vm receives valid JSON text.
+const pj = (obj) => V(`parseFixJson(${JSON.stringify(JSON.stringify(obj))})`);
+const good = pj({ readme: "# Demo\n\nCool thing.", description: "Does things", topics: ["AI Tools", "demo"] }).readme;
+check("attribution appended to readme", good.includes("*Created with [repo-doctor](https://prathamjain.com/projects/repo-doctor)*"));
+check("attribution is at the very end", good.trimEnd().endsWith("*Created with [repo-doctor](https://prathamjain.com/projects/repo-doctor)*"));
+const fencedStr = "```json\n" + JSON.stringify({ readme: "# Hi", description: "d", topics: [] }) + "\n```";
+const fenced = V(`parseFixJson(${JSON.stringify(fencedStr)})`).description;
+check("fenced JSON parsed", fenced === "d");
+const topicsNorm = pj({ readme: "# Hi", description: "d", topics: ["AI Tools", "My Topic"] }).topics;
+check("topics normalized lowercase-hyphen", JSON.stringify(topicsNorm) === '["ai-tools","my-topic"]');
+let threw = false;
+try { V(`parseFixJson("not json at all")`); } catch (e) { threw = true; }
+check("garbage JSON throws badjson", threw);
+let threw2 = false;
+try { pj({ description: "no readme field" }); } catch (e) { threw2 = true; }
+check("missing readme field throws", threw2);
+// attribution not duplicated when the model already added it
+const dup = pj({ readme: "# Hi\n---\n*Created with [repo-doctor](https://prathamjain.com/projects/repo-doctor)*", description: "d", topics: [] }).readme;
+check("attribution not duplicated", (dup.match(/Created with \[repo-doctor\]/g) || []).length === 1);
+
+// 4. markdown preview renderer
+const html = V(`mdToHtml('# Title\\n\\nHello **bold** and \`code\`.\\n\\n- one\\n- two\\n\\n[link](https://x.com)\\n\\n---\\n\\n\`\`\`\\ncode()\\n\`\`\`')`);
+check("h1 rendered", html.includes("<h1>Title</h1>"));
+check("bold rendered", html.includes("<strong>bold</strong>"));
+check("inline code rendered", html.includes("<code>code</code>"));
+check("list rendered", html.includes("<ul>") && html.includes("<li>one</li>"));
+check("link rendered with rel", html.includes('rel="noopener"'));
+check("hr rendered", html.includes("<hr>"));
+check("fence rendered", html.includes("<pre><code>code()</code></pre>"));
+const xss = V(`mdToHtml('<script>alert(1)</script>')`);
+check("html escaped in preview", !xss.includes("<script>") && xss.includes("&lt;script&gt;"));
+
+// 5. base64 roundtrip incl. unicode (decoded outside the vm sandbox)
+const b64 = V(`toB64("hello wörld ✓")`);
+const roundtrip = Buffer.from(b64, "base64").toString("utf8");
+check("toB64 roundtrips unicode", roundtrip === "hello wörld ✓");
+
+// 6. MIT license text
+const year = new Date().getFullYear();
+const lic = V(`mitLicense("tester")`);
+check("license has year and owner", lic.includes(String(year)) && lic.includes("tester"));
+check("license is MIT", lic.startsWith("MIT License"));
+
+// 7. groq key defaults to empty (BYOK, never prefilled)
+check("groqKey defaults empty", V("state.groqKey") === "");
+
+console.log(`${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

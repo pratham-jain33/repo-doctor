@@ -31,13 +31,14 @@
 
   <!-- ============ SCREEN: HOME ============ -->
   <section id="screen-home" class="screen">
+    <button class="btn btn-ghost back" id="back-to-results" hidden><i data-lucide="arrow-left"></i> back to results</button>
     <div class="hero">
       <div class="hero-badges">
         <div class="hero-badge"><i data-lucide="sparkles"></i> free forever, no sign-up</div>
         <a class="hero-badge hero-badge-link" id="stars-pill" href="https://github.com/pratham-jain33/repo-doctor" target="_blank" rel="noopener" hidden><i data-lucide="star"></i> <span id="stars-count">0</span>&nbsp;stars</a>
       </div>
       <h1>Your GitHub looks abandoned.<br><span class="hl">Fix it in an afternoon.</span></h1>
-      <p class="lede">repo-doctor scans your public repos and tells you exactly what breaks the house standard: missing READMEs, empty descriptions, no topics, no license. Worst repos first.</p>
+      <p class="lede">repo-doctor scans your repos and tells you exactly what breaks the house standard: missing READMEs, empty descriptions, no topics, no license. Worst repos first. Then AI writes the fixes and opens PRs you merge.</p>
 
       <form id="username-form" class="username-form" autocomplete="off">
         <div class="input-row">
@@ -74,6 +75,30 @@
         </div>
         <p class="token-note" id="token-note" hidden></p>
       </div>
+
+      <div class="token-box">
+        <button class="token-toggle" id="groq-toggle" type="button"><i data-lucide="sparkles"></i> Want AI fixes? Bring your own Groq key</button>
+        <div class="token-form" id="groq-form" hidden>
+          <p class="token-explainer">AI fixes run on <strong>your</strong> Groq key and quota. The free tier is plenty. Grab one at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. It stays in this browser and is only ever sent to api.groq.com.</p>
+          <div class="input-row">
+            <i data-lucide="lock" class="input-icon"></i>
+            <input id="groq-input" type="password" placeholder="paste groq key here" spellcheck="false" autocapitalize="off" autocomplete="off">
+            <button type="button" class="btn btn-primary" id="groq-go">Connect <i data-lucide="arrow-right"></i></button>
+          </div>
+          <div class="token-row">
+            <label class="check"><input type="checkbox" id="groq-remember" checked><span class="custom-check"><i data-lucide="check"></i></span> remember in this browser</label>
+            <button type="button" class="btn btn-ghost btn-mini" id="groq-show">show</button>
+          </div>
+          <p class="form-error" id="groq-error" hidden></p>
+        </div>
+        <div class="token-active" id="groq-active" hidden>
+          <div class="token-active-info">
+            <p class="token-active-line"><i data-lucide="check"></i> <span>Groq key connected</span></p>
+            <p class="muted small">AI fixes ready · runs on your key and quota</p>
+          </div>
+          <button type="button" class="btn btn-ghost" id="groq-forget"><i data-lucide="trash-2"></i> forget key</button>
+        </div>
+      </div>
     </div>
 
     <div id="how" class="steps">
@@ -89,8 +114,8 @@
       </div>
       <div class="step">
         <div class="step-num">3</div>
-        <h3>Get the fix list</h3>
-        <p>Worst repos first, with a score. Fix, re-run, watch it climb.</p>
+        <h3>AI writes the fixes</h3>
+        <p>Review the generated README, open a PR, merge it on GitHub. About-box fields apply instantly.</p>
       </div>
     </div>
 
@@ -210,6 +235,12 @@
         <button class="btn btn-ghost" id="download-report"><i data-lucide="download"></i> report.md</button>
         <button class="btn btn-primary" id="audit-again"><i data-lucide="rotate-ccw"></i> Audit again</button>
       </div>
+    </div>
+
+    <div class="keys-hint" id="keys-hint" hidden>
+      <i data-lucide="info"></i>
+      <p><strong>AI fixes need keys:</strong> <span id="keys-hint-text"></span></p>
+      <button class="btn btn-ghost btn-mini" id="keys-hint-go">Add keys</button>
     </div>
 
     <div id="results-list" class="results-list"></div>
