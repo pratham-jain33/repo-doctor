@@ -121,8 +121,14 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .counter { font-family: "Bricolage Grotesque"; font-weight: 700; font-size: 1.1rem; }
 .counter.full { color: var(--amber); }
 .picker-actions { display: flex; align-items: center; gap: 0.6rem; }
-.check { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--muted); font-size: 0.88rem; cursor: pointer; }
-.check input { accent-color: var(--amber); width: 16px; height: 16px; }
+.check { position: relative; display: inline-flex; align-items: center; gap: 0.55rem; color: var(--muted); font-size: 0.88rem; cursor: pointer; }
+.check input[type="checkbox"] { position: absolute; opacity: 0; pointer-events: none; width: 0; }
+.check .custom-check { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--faint); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; background: transparent; transition: background 0.15s, border-color 0.15s; }
+.check .custom-check svg { width: 13px; height: 13px; color: #1a1005; opacity: 0; transform: scale(0.4); transition: opacity 0.15s, transform 0.15s; }
+.check:hover .custom-check { border-color: var(--amber); }
+.check input:checked + .custom-check { background: var(--amber); border-color: var(--amber); }
+.check input:checked + .custom-check svg { opacity: 1; transform: scale(1); }
+.check input:focus-visible + .custom-check { outline: 2px solid var(--amber-dim); outline-offset: 2px; }
 .picker-search { position: relative; margin-bottom: 1rem; }
 .picker-search input { width: 100%; }
 .cap-note { display: flex; align-items: center; gap: 0.5rem; color: var(--amber); font-size: 0.88rem; margin-bottom: 1rem; }
