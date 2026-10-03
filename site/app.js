@@ -145,6 +145,7 @@ function showTokenActive() {
   document.getElementById("token-toggle").style.display = "none";
   document.getElementById("token-active").hidden = false;
   document.getElementById("token-user").textContent = "@" + state.tokenLogin;
+  document.getElementById("trust-line").hidden = true;
   icons();
 }
 
@@ -155,6 +156,7 @@ function forgetToken() {
   document.getElementById("token-input").value = "";
   document.getElementById("token-active").hidden = true;
   document.getElementById("token-toggle").style.display = "";
+  document.getElementById("trust-line").hidden = false;
 }
 
 async function connectToken(token, remember) {

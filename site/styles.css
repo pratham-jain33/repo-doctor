@@ -80,8 +80,7 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .btn-big { font-size: 1.05rem; padding: 1rem 1.8rem; }
 .back { margin-bottom: 1.2rem; }
 
-.trust { display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: var(--faint); font-size: 0.88rem; margin-top: 1.4rem; max-width: 560px; margin-left: auto; margin-right: auto; }
-.trust svg { width: 16px; height: 16px; color: var(--green); flex-shrink: 0; }
+.trust { text-align: center; color: var(--faint); font-size: 0.88rem; margin-top: 1.4rem; max-width: 560px; margin-left: auto; margin-right: auto; }
 
 /* ---------- token box ---------- */
 .token-box { max-width: 560px; margin: 1.8rem auto 0; text-align: center; }
