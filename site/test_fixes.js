@@ -96,6 +96,13 @@ check("missing readme field throws", threw2);
 // attribution not duplicated when the model already added it
 const dup = pj({ readme: "# Hi\n---\n*Created with [repo-doctor](https://prathamjain.com/projects/repo-doctor)*", description: "d", topics: [] }).readme;
 check("attribution not duplicated", (dup.match(/Created with \[repo-doctor\]/g) || []).length === 1);
+// the --- separator must be wrapped in blank lines, or GitHub reads
+// "paragraph\n---" as a setext heading and renders the last paragraph huge
+check("footer --- has blank line before it", /\n\n---\n/.test(good));
+check("footer --- has blank line after it", /---\n\n\*Created with/.test(good));
+// old-format footers (no blank lines) are still stripped, not duplicated
+const oldf = pj({ readme: "# Hi\nSome text.\n---\n*Created with [repo-doctor](https://prathamjain.com/projects/repo-doctor)*", description: "d", topics: [] }).readme;
+check("old footer format stripped and fixed", (oldf.match(/Created with \[repo-doctor\]/g) || []).length === 1 && /\n\n---\n\n\*Created with/.test(oldf));
 
 // 4. markdown preview renderer
 const html = V(`mdToHtml('# Title\\n\\nHello **bold** and \`code\`.\\n\\n- one\\n- two\\n\\n[link](https://x.com)\\n\\n---\\n\\n\`\`\`\\ncode()\\n\`\`\`')`);

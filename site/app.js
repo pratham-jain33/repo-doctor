@@ -115,7 +115,10 @@ async function fetchReadme(owner, repo) {
   const entry = cands.find((f) => /\.md$/i.test(f.name)) || cands[0];
   if (!entry || !entry.download_url) return null;
   try {
-    const res = await fetch(entry.download_url);
+    // Cache-bust: raw.githubusercontent.com serves stale READMEs for minutes
+    // after a push, which once made a re-audit score the pre-fix README.
+    const bust = (entry.download_url.includes("?") ? "&" : "?") + "t=" + Date.now();
+    const res = await fetch(entry.download_url + bust);
     if (!res.ok) return null;
     return await res.text();
   } catch (e) {
@@ -808,9 +811,9 @@ Hard rules:
 - Installation and Usage must be copy-pasteable steps derived ONLY from the files and manifest given. Never invent commands, URLs, flags, or features.
 - If a fact is unknown, omit it. Do not hallucinate.
 - Do NOT write Contribute, Credits, or License sections — GitHub renders those natively.
-- End the README with exactly these two lines:
----
+- End the README with a blank line, then ---, then a blank line, then exactly:
 ${ATTRIBUTION_LINE}
+(The blank lines matter: without them GitHub turns your last paragraph into a giant heading.)
 
 "description": one honest line, no trailing period, under 120 characters.
 "topics": 1 to 5 items, lowercase, hyphens instead of spaces.`;
@@ -853,9 +856,11 @@ function parseFixJson(raw) {
     const d = JSON.parse(clean);
     if (typeof d.readme !== "string" || !d.readme.trim()) throw 0;
     let readme = d.readme.trim();
-    // The attribution is non-negotiable: enforce it at the end.
-    readme = readme.replace(/\n---\n\*Created with \[repo-doctor\][\s\S]*$/, "").trim();
-    readme += `\n---\n${ATTRIBUTION_LINE}\n`;
+    // The attribution is non-negotiable: enforce it at the end, wrapped in
+    // blank lines. Without them GitHub reads "paragraph\n---" as a setext
+    // heading and renders the last paragraph as a giant heading.
+    readme = readme.replace(/\n\n?---\n\n?\*Created with \[repo-doctor\][\s\S]*$/, "").trim();
+    readme += `\n\n---\n\n${ATTRIBUTION_LINE}\n`;
     return {
       readme,
       description: String(d.description || "").trim().slice(0, 140),
