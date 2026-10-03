@@ -823,6 +823,13 @@ async function groqChat(system, user) {
 }
 
 function buildFixPrompt(ctx) {
+  const hintLines = Object.entries(ctx.sectionHints || {})
+    .filter(([, v]) => v && String(v).trim())
+    .map(([k, v]) => `- ${k}: ${String(v).trim()}`);
+  const shots = ctx.screenshots || [];
+  const notesBlock = (hintLines.length || shots.length)
+    ? `\nUser notes for flagged README sections: weave each into its matching section, creating the section if needed:\n${hintLines.join("\n")}${shots.length ? `\n- screenshots: add a ## Screenshots section showing these images with relative paths (the files will be in the repo): ${shots.join(", ")}` : ""}\n`
+    : "";
   const system = `You are repo-doctor's README writer. You reply with ONLY a JSON object, no markdown fences, no commentary:
 {"readme": "the full README.md", "description": "one line", "topics": ["t1", "t2"], "website": "https://..."}
 
@@ -834,7 +841,7 @@ README structure — use these sections in this order, skipping any you cannot f
 ## Features
 ## Installation
 ## Usage
-(## API reference and ## Tests only when genuinely applicable)
+(## API reference and ## Tests only when genuinely applicable, or when the user gave notes for them)
 
 Hard rules:
 - No emojis anywhere.
@@ -847,7 +854,7 @@ ${ATTRIBUTION_LINE}
 
 "description": one honest line, no trailing period, under 120 characters.
 "topics": 1 to 5 items, lowercase, hyphens instead of spaces.
-"website": the live demo or docs URL, copied EXACTLY as it appears in the files or existing README given (package.json "homepage", a demo link, a docs site). Never invent, guess, or normalize a URL. If you cannot see one, use "".`;
+"website": the live demo or docs URL, copied EXACTLY as it appears in the files or existing README given (package.json "homepage", a demo link, a docs site). Never invent, guess, or normalize a URL. If you cannot see one, use "".${notesBlock}`;
 
   const user = `Repo: ${ctx.repo.name} by ${ctx.owner}
 GitHub description now: ${ctx.repo.description || "(empty)"}
@@ -983,7 +990,7 @@ async function openFixPR(owner, name, files, title) {
     } catch (e) { if (e.type !== "notfound") throw e; }
     await ghWrite("PUT", `/repos/${owner}/${name}/contents/${f.path}`, {
       message: title,
-      content: toB64(f.content),
+      content: f.b64 || toB64(f.content),
       branch,
       // The PR goes out under the user's token (their permission), but the
       // commits themselves are stamped repo-doctor.
@@ -1079,12 +1086,87 @@ async function startFix(name, kinds, panel) {
   work.innerHTML = `<p class="muted"><span class="spin"></span>Reading the repo and drafting the README...</p>`;
   try {
     const ctx = await gatherFixContext(state.username, name);
+    const st0 = panel._fixState || { hints: {}, shots: [] };
+    ctx.sectionHints = st0.hints;
+    ctx.screenshots = st0.shots.map((s) => "docs/screenshots/" + s.file);
     const { system, user } = buildFixPrompt(ctx);
     const data = parseFixJson(await groqChat(system, user));
     renderFixPreview(name, kinds, ctx, data, work);
   } catch (e) {
     work.innerHTML = `<p class="fix-error">${fixErrorText(e)}</p>`;
   }
+}
+
+function sanitizeShotName(name, existing) {
+  let base = String(name || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9._-]/g, "") || "screenshot.png";
+  let n = base, i = 2;
+  while (existing.has(n)) {
+    n = base.replace(/(\.[a-z0-9]+)?$/i, "-" + i + "$1");
+    i++;
+  }
+  return n;
+}
+
+function readFileB64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(",")[1] || "");
+    r.onerror = () => reject(new Error("read failed"));
+    r.readAsDataURL(file);
+  });
+}
+
+// Reads the per-section notes + newly picked screenshots into panel._fixState.
+// Called on Regenerate and on Apply, so staged files are never silently dropped.
+async function collectSectionState(panel, work) {
+  const st = panel._fixState || (panel._fixState = { hints: {}, shots: [] });
+  work.querySelectorAll("[data-sec]").forEach((inp) => {
+    const v = inp.value.trim();
+    if (v) st.hints[inp.dataset.sec] = v;
+    else delete st.hints[inp.dataset.sec];
+  });
+  const fi = work.querySelector("[data-sec-files]");
+  if (fi && fi.files && fi.files.length) {
+    const existing = new Set(st.shots.map((s) => s.file));
+    for (const f of fi.files) {
+      const file = sanitizeShotName(f.name, existing);
+      existing.add(file);
+      try {
+        const b64 = await readFileB64(f);
+        if (b64) st.shots.push({ file, b64 });
+      } catch (e) { /* skip unreadable files */ }
+    }
+    fi.value = "";
+  }
+  return st;
+}
+
+// Optional per-section inputs for every flagged README section. Screenshots
+// get a file picker; everything else gets a notes field for the AI.
+function sectionInputs(name, work) {
+  const panel = work.closest(".fix-panel");
+  const st = panel._fixState || (panel._fixState = { hints: {}, shots: [] });
+  const r = state.results.find((x) => x.name === name);
+  const secs = [];
+  for (const m of [...(r ? r.missing : []), ...(r ? r.warnings : [])]) {
+    const mm = /^readme: (?:missing|no) '([^']+)' section$/.exec(m);
+    if (mm && !secs.includes(mm[1])) secs.push(mm[1]);
+  }
+  if (!secs.length) return "";
+  const rows = secs.map((s) => {
+    if (s === "screenshots") {
+      const staged = st.shots.length
+        ? `<p class="muted small">` + st.shots.length + ` screenshot` + (st.shots.length > 1 ? "s" : "") + ` staged: ` + st.shots.map((x) => esc(x.file)).join(", ") + `</p>`
+        : "";
+      return `<label class="fix-sec"><span>screenshots</span><input type="file" data-sec-files accept="image/*" multiple></label>` + staged;
+    }
+    return `<label class="fix-sec"><span>` + esc(s) + `</span><input data-sec="` + esc(s) + `" value="` + esc(st.hints[s] || "") + `" placeholder="notes for the AI"></label>`;
+  }).join("");
+  return `<div class="fix-sections">
+    <h4 class="fix-title">README sections</h4>
+    <p class="muted small fix-sec-note">Flagged sections. Add a note for any of them, or pick screenshots, then hit Regenerate: the AI weaves it in. Screenshots ride out with the README PR.</p>
+    ` + rows + `
+  </div>`;
 }
 
 function renderFixPreview(name, kinds, ctx, data, work) {
@@ -1102,6 +1184,7 @@ function renderFixPreview(name, kinds, ctx, data, work) {
       <label>Website<input data-f="homepage" value="${esc(data.website || ctx.repo.homepage || "")}" placeholder="https://..."></label>
       ${(!data.website && !ctx.repo.homepage) ? `<p class="fix-note">The AI couldn't find a live URL in the repo files — paste your demo or docs link here if you have one.</p>` : ""}
     </div>` : ""}
+    ${kinds.readme ? sectionInputs(name, work) : ""}
     <div class="fix-toggles">${toggles}</div>
     <div class="fix-actions">
       <button class="btn btn-primary" data-apply>Apply fixes</button>
@@ -1109,12 +1192,18 @@ function renderFixPreview(name, kinds, ctx, data, work) {
     </div>
     <div class="fix-result"></div>`;
   icons();
-  work.querySelector("[data-regen]").addEventListener("click", () => startFix(name, kinds, work.closest(".fix-panel")));
+  work.querySelector("[data-regen]").addEventListener("click", async () => {
+    const panel = work.closest(".fix-panel");
+    await collectSectionState(panel, work);
+    startFix(name, kinds, panel);
+  });
   work.querySelector("[data-apply]").addEventListener("click", () => applyFixes(name, kinds, ctx, data, work));
 }
 
 async function applyFixes(name, kinds, ctx, data, work) {
   const result = work.querySelector(".fix-result");
+  const panel = work.closest(".fix-panel");
+  const st = await collectSectionState(panel, work);
   const want = {};
   work.querySelectorAll("[data-t]").forEach((t) => { want[t.dataset.t] = t.checked; });
   if (!want.readme && !want.about && !want.license) {
@@ -1141,10 +1230,13 @@ async function applyFixes(name, kinds, ctx, data, work) {
     const files = [];
     if (want.readme && kinds.readme) files.push({ path: "README.md", content: data.readme });
     if (want.license && kinds.license) files.push({ path: "LICENSE", content: mitLicense(owner) });
+    if (want.readme && kinds.readme && st.shots.length) {
+      for (const s of st.shots) files.push({ path: "docs/screenshots/" + s.file, b64: s.b64 });
+    }
     if (files.length) {
       const title = "repo-doctor: AI fixes" + (files.length > 1 ? ` (${files.map((f) => f.path).join(", ")})` : ` (${files[0].path})`);
       prUrl = await openFixPR(owner, name, files, title);
-      lines.push("PR opened. Nothing is applied until you merge it.");
+      lines.push("PR opened" + (st.shots.length && want.readme ? " (with " + st.shots.length + " screenshot" + (st.shots.length > 1 ? "s" : "") + ")" : "") + ". Nothing is applied until you merge it.");
     }
     result.innerHTML = `
       <div class="pr-card">

@@ -279,6 +279,14 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .pr-card p { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.7rem; }
 .fix-error { color: var(--red); font-size: 0.88rem; margin-top: 0.7rem; }
 .fix-note { font-size: 0.85rem; margin-top: 0.7rem; }
+.fix-sections { margin-top: 0.9rem; border-top: 1px solid var(--line); padding-top: 0.9rem; display: grid; gap: 0.55rem; }
+.fix-sections .fix-title { margin-bottom: 0; }
+.fix-sec-note { margin: 0; }
+.fix-sec { display: grid; gap: 0.3rem; font-size: 0.82rem; color: var(--faint); }
+.fix-sec input { background: var(--surface-2); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 0.55rem 0.75rem; font-size: 0.88rem; outline: none; font-family: "Inter", system-ui, sans-serif; width: 100%; }
+.fix-sec input:focus { border-color: var(--amber-dim); }
+.fix-sec input[type="file"] { padding: 0.4rem 0.5rem; font-size: 0.8rem; }
+.fix-sec input[type="file"]::file-selector-button { background: var(--surface); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 0.35rem 0.7rem; margin-right: 0.6rem; font-size: 0.8rem; cursor: pointer; }
 
 /* ---------- footer ---------- */
 footer { border-top: 1px solid var(--line); padding: 1.8rem 0; }

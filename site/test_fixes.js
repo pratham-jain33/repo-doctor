@@ -115,6 +115,17 @@ const w4 = pj({ readme: "# Hi", description: "d", topics: [] }).website;
 check("missing website defaults to empty", w4 === "");
 check("prompt asks for website from evidence", prompt.system.includes("\"website\"") && prompt.system.includes("Never invent"));
 
+// 3d. section notes + screenshots are woven into the prompt
+const prompt3 = V(`buildFixPrompt({ owner: "o", repo: { name: "r", description: "", language: "", stargazers_count: 0, topics: [] }, files: [], manifestName: "", manifestBody: "", existing: null, sectionHints: {"build status": "CI runs on push"}, screenshots: ["docs/screenshots/a.png"] })`);
+check("prompt weaves section notes", /\n- build status: CI runs on push\n/.test(prompt3.system));
+check("prompt instructs screenshots section", prompt3.system.includes("## Screenshots") && prompt3.system.includes("docs/screenshots/a.png"));
+const prompt4 = V(`buildFixPrompt({ owner: "o", repo: { name: "r", description: "", language: "", stargazers_count: 0, topics: [] }, files: [], manifestName: "", manifestBody: "", existing: null })`);
+check("prompt omits notes block when empty", !prompt4.system.includes("User notes for flagged"));
+
+// 3e. screenshot filename sanitizing
+check("shot name sanitized", V(`sanitizeShotName("My Photo.PNG", new Set())`) === "my-photo.png");
+check("shot name deduped", V(`sanitizeShotName("a.png", new Set(["a.png"]))`) === "a-2.png");
+
 // 3c. fixKinds picks up the protection kind
 const kindsP = V(`fixKinds({missing: ["protection: default branch is not protected"], warnings: []})`);
 check("fixKinds flags protection", kindsP.protection === true && kindsP.readme === false);
