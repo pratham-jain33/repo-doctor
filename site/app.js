@@ -1078,32 +1078,33 @@ async function applyFixes(name, kinds, ctx, data, work) {
   result.innerHTML = `<p class="muted"><span class="spin"></span>Applying...</p>`;
   const owner = state.username;
   try {
-    let html = "";
+    const lines = [];
+    let prUrl = null;
     if (want.about && kinds.about) {
       await applyAbout(owner, name, {
         description: work.querySelector('[data-f="description"]').value.trim(),
         homepage: work.querySelector('[data-f="homepage"]').value.trim(),
         topics: work.querySelector('[data-f="topics"]').value.trim(),
       });
-      html += `<p class="about-done"><i data-lucide="check"></i> About box updated on GitHub.</p>`;
+      lines.push("About box updated on GitHub.");
     }
     const files = [];
     if (want.readme && kinds.readme) files.push({ path: "README.md", content: data.readme });
     if (want.license && kinds.license) files.push({ path: "LICENSE", content: mitLicense(owner) });
     if (files.length) {
       const title = "repo-doctor: AI fixes" + (files.length > 1 ? ` (${files.map((f) => f.path).join(", ")})` : ` (${files[0].path})`);
-      const prUrl = await openFixPR(owner, name, files, title);
-      html += `
-        <div class="pr-card">
-          <i data-lucide="check"></i>
-          <div>
-            <h4>PR opened</h4>
-            <p>Nothing is applied until you merge it. Review the diff on GitHub, then merge the PR.</p>
-            <a class="btn btn-primary btn-mini" href="${esc(prUrl)}" target="_blank" rel="noopener">Review &amp; merge on GitHub <i data-lucide="external-link"></i></a>
-          </div>
-        </div>`;
+      prUrl = await openFixPR(owner, name, files, title);
+      lines.push("PR opened. Nothing is applied until you merge it.");
     }
-    result.innerHTML = html;
+    result.innerHTML = `
+      <div class="pr-card">
+        <i data-lucide="check"></i>
+        <div>
+          <h4>${prUrl ? "PR opened" : "Done"}</h4>
+          <p>${lines.join(" ")}</p>
+          ${prUrl ? `<a class="btn btn-primary btn-mini" href="${esc(prUrl)}" target="_blank" rel="noopener">Review &amp; merge on GitHub <i data-lucide="external-link"></i></a>` : ""}
+        </div>
+      </div>`;
     icons();
   } catch (e) {
     result.innerHTML = `<p class="fix-error">${fixErrorText(e)}</p>`;
