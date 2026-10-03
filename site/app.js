@@ -283,7 +283,6 @@ document.getElementById("token-show").addEventListener("click", (e) => {
 const GROQ_KEY = "repo-doctor-groq";
 
 function showGroqActive() {
-  document.getElementById("groq-promo").hidden = true;
   document.getElementById("groq-form").hidden = true;
   document.getElementById("groq-active").hidden = false;
   icons();
@@ -294,26 +293,35 @@ function forgetGroq() {
   try { localStorage.removeItem(GROQ_KEY); } catch (e) {}
   document.getElementById("groq-input").value = "";
   document.getElementById("groq-active").hidden = true;
-  document.getElementById("groq-promo").hidden = false;
   document.getElementById("groq-form").hidden = false;
 }
 
 async function connectGroq(key, remember) {
   const err = document.getElementById("groq-error");
+  const btn = document.getElementById("groq-go");
   err.hidden = true;
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.innerHTML = `<span class="spin"></span>Checking...`;
   let res;
   try {
     res = await fetch("https://api.groq.com/openai/v1/models", {
       headers: { Authorization: "Bearer " + key },
     });
   } catch (e) {
-    err.textContent = "Could not reach Groq. Check your connection.";
+    err.textContent = "Could not reach Groq. Check your connection and try again.";
     err.hidden = false;
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    icons();
     return;
   }
+  btn.disabled = false;
+  btn.innerHTML = orig;
   if (!res.ok) {
-    err.textContent = "That key was rejected. Check it and try again.";
+    err.textContent = "Invalid or expired key. Check it and try again.";
     err.hidden = false;
+    icons();
     return;
   }
   state.groqKey = key;

@@ -124,5 +124,23 @@ check("license is MIT", lic.startsWith("MIT License"));
 check("groqKey defaults empty", V("state.groqKey") === "");
 check("uses gpt-oss-120b", V("GROQ_MODEL") === "openai/gpt-oss-120b");
 
-console.log(`${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
+// 8. connectGroq touches only elements that exist (regression: it once
+//    referenced the removed #groq-promo, so valid keys died silently).
+(async () => {
+  sandbox.fetch = async () => ({ ok: true, status: 200 });
+  await V('connectGroq("gsk_test123", true)');
+  check("valid key: groq-active shown", els["groq-active"].hidden === false);
+  check("valid key: groq-form hidden", els["groq-form"].hidden === true);
+  check("valid key: state set", V("state.groqKey") === "gsk_test123");
+  check("valid key: button restored", els["groq-go"].disabled === false);
+
+  sandbox.fetch = async () => ({ ok: false, status: 401 });
+  V('document.getElementById("groq-active").hidden = true; document.getElementById("groq-form").hidden = false; state.groqKey = ""');
+  await V('connectGroq("badkey", false)');
+  check("invalid key: error shown", els["groq-error"].hidden === false);
+  check("invalid key: says invalid or expired", els["groq-error"].textContent.includes("Invalid or expired"));
+  check("invalid key: state not set", V("state.groqKey") === "");
+
+  console.log(`${pass} passed, ${fail} failed`);
+  process.exit(fail ? 1 : 0);
+})();
