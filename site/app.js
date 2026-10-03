@@ -21,6 +21,12 @@ function maxSelection() {
   return state.token ? TOKEN_CAP : FREE_CAP;
 }
 
+// The honest cap: never offer more than actually exist.
+// "43 repos found, pick up to 100" is nonsense, so it is min(tier cap, repos found).
+function effectiveCap() {
+  return Math.min(maxSelection(), state.repos.length);
+}
+
 /* ---------------- helpers ---------------- */
 
 function esc(s) {
@@ -291,7 +297,7 @@ async function loadRepos() {
     return;
   }
   document.getElementById("repo-count").textContent = state.repos.length;
-  document.getElementById("pick-cap").textContent = maxSelection();
+  document.getElementById("pick-cap").textContent = effectiveCap();
   document.getElementById("mode-line").textContent = state.token
     ? `Token connected as @${state.tokenLogin}: private repos included, 5,000 requests/hr.`
     : "Public repos only.";
@@ -352,7 +358,7 @@ function visibleRepos() {
 function renderPicker() {
   const list = document.getElementById("repo-list");
   const repos = visibleRepos();
-  const cap = maxSelection();
+  const cap = effectiveCap();
   document.getElementById("picker-empty").hidden = repos.length > 0;
   const capped = state.selected.size >= cap;
 
@@ -383,7 +389,7 @@ function renderPicker() {
 }
 
 function toggleRepo(name, want) {
-  const cap = maxSelection();
+  const cap = effectiveCap();
   if (want) {
     // THE CAP: refuse to exceed it, no exceptions.
     if (state.selected.size >= cap) {
@@ -407,7 +413,7 @@ function toggleRepo(name, want) {
 
 function updateCounter() {
   const n = state.selected.size;
-  const cap = maxSelection();
+  const cap = effectiveCap();
   const counter = document.getElementById("select-counter");
   counter.textContent = `${n} / ${cap} selected`;
   counter.classList.toggle("full", n >= cap);
@@ -418,7 +424,7 @@ function updateCounter() {
 
 document.getElementById("select-all").addEventListener("click", () => {
   state.selected.clear();
-  const cap = maxSelection();
+  const cap = effectiveCap();
   for (const r of visibleRepos()) {
     if (state.selected.size >= cap) break; // cap respected
     state.selected.add(r.name);

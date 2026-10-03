@@ -102,6 +102,20 @@ function stubFetch(repos) {
   check("exclude-forks on load: no error card", els["picker-error"].hidden === true);
   els["exclude-forks"].checked = false;
 
+  // 4. The cap is honest: min(tier cap, repos actually found).
+  V('state.repos = []; state.fetchedRepos = []; state.username = "tester"; state.selected.clear(); state.token = "fake"; state.tokenLogin = "tester"');
+  stubFetch(fakeRepos(43));
+  await V("loadRepos()");
+  check("43 repos, token tier: header says pick up to 43",
+    els["pick-cap"].textContent === 43);
+  check("43 repos, token tier: counter shows 0 / 43",
+    els["select-counter"].textContent === "0 / 43 selected");
+  check("effectiveCap() is 43, not 100", V("effectiveCap()") === 43);
+  els["select-all"]._listeners.click();
+  check("select-all takes all 43", V("state.selected.size") === 43);
+  check("counter shows 43 / 43 selected",
+    els["select-counter"].textContent === "43 / 43 selected");
+
   console.log(`${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

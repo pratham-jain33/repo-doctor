@@ -88,11 +88,11 @@ check("run enabled at 1", els["run-audit"].disabled === false);
 // 6. counter text reflects the cap
 check("counter shows 1 / 25", els["select-counter"].textContent === "1 / 25 selected");
 
-// 7. token tier: cap becomes 100
+// 7. token tier: cap becomes min(100, repos found) = 30 here
 V('state.selected.clear(); state.token = "fake"; state.tokenLogin = "tester"');
 for (let i = 0; i < 30; i++) V(`toggleRepo("repo-${i}", true)`);
 check("token tier: 30 toggles all selected", V("state.selected.size") === 30);
-check("counter shows 30 / 100", els["select-counter"].textContent === "30 / 100 selected");
+check("counter shows 30 / 30 (honest cap)", els["select-counter"].textContent === "30 / 30 selected");
 V('state.selected.clear()');
 els["select-all"]._listeners.click();
 check("token tier: select-all takes all 30 visible", V("state.selected.size") === 30);
