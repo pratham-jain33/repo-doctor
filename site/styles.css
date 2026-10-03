@@ -89,7 +89,8 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .token-toggle svg { width: 16px; height: 16px; color: var(--amber); }
 .token-toggle:hover { border-color: var(--amber-dim); }
 .token-form { margin-top: 1.1rem; text-align: left; border: 1px dashed var(--line); border-radius: var(--radius); padding: 1.1rem 1.2rem; }
-.token-form .muted { margin-bottom: 0.9rem; }
+.token-explainer { color: var(--ink); font-size: 0.88rem; margin-bottom: 0.9rem; }
+.scope-chip { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: rgba(251,191,36,0.14); border: 1px solid var(--amber-dim); color: var(--amber); border-radius: 6px; padding: 0.1rem 0.45rem; font-size: 0.85em; white-space: nowrap; }
 .token-row { display: flex; justify-content: space-between; align-items: center; margin-top: 0.7rem; }
 .btn-mini { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
 .token-active { margin-top: 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
