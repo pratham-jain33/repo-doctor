@@ -295,8 +295,8 @@ document.getElementById("token-show").addEventListener("click", (e) => {
 const GROQ_KEY = "repo-doctor-groq";
 
 function showGroqActive() {
+  document.getElementById("groq-promo").hidden = true;
   document.getElementById("groq-form").hidden = true;
-  document.getElementById("groq-toggle").style.display = "none";
   document.getElementById("groq-active").hidden = false;
   icons();
 }
@@ -306,7 +306,8 @@ function forgetGroq() {
   try { localStorage.removeItem(GROQ_KEY); } catch (e) {}
   document.getElementById("groq-input").value = "";
   document.getElementById("groq-active").hidden = true;
-  document.getElementById("groq-toggle").style.display = "";
+  document.getElementById("groq-promo").hidden = false;
+  document.getElementById("groq-form").hidden = false;
 }
 
 async function connectGroq(key, remember) {
@@ -334,11 +335,6 @@ async function connectGroq(key, remember) {
   showGroqActive();
 }
 
-document.getElementById("groq-toggle").addEventListener("click", () => {
-  const f = document.getElementById("groq-form");
-  f.hidden = !f.hidden;
-  icons();
-});
 document.getElementById("groq-go").addEventListener("click", () => {
   const k = document.getElementById("groq-input").value.trim();
   const err = document.getElementById("groq-error");
@@ -765,7 +761,7 @@ document.getElementById("download-report").addEventListener("click", () => {
 
 /* ---------------- screen 5: AI fixes (v0.2) ---------------- */
 
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_MODEL = "openai/gpt-oss-120b";
 const ATTRIBUTION_LINE = "*Created with [repo-doctor](https://prathamjain.com/projects/repo-doctor)*";
 
 async function groqChat(system, user) {
@@ -1103,8 +1099,8 @@ async function applyFixes(name, kinds, ctx, data, work) {
 function updateKeysHint() {
   const bar = document.getElementById("keys-hint");
   const missing = [];
-  if (!state.groqKey) missing.push("a Groq key for AI generation (free, bring your own)");
-  if (!state.token) missing.push("a GitHub token to open PRs");
+  if (!state.groqKey) missing.push("a Groq key to unlock AI fixes (free, bring your own)");
+  if (!state.token) missing.push("a GitHub token so fixes can be opened as PRs");
   if (!missing.length) { bar.hidden = true; return; }
   document.getElementById("keys-hint-text").textContent = "You need " + missing.join(" and ") + ". Add them on the home page, then come back.";
   bar.hidden = false;

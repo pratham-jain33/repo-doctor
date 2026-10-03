@@ -120,8 +120,9 @@ const lic = V(`mitLicense("tester")`);
 check("license has year and owner", lic.includes(String(year)) && lic.includes("tester"));
 check("license is MIT", lic.startsWith("MIT License"));
 
-// 7. groq key defaults to empty (BYOK, never prefilled)
+// 7. groq key defaults to empty (BYOK, never prefilled), model is gpt-oss-120b
 check("groqKey defaults empty", V("state.groqKey") === "");
+check("uses gpt-oss-120b", V("GROQ_MODEL") === "openai/gpt-oss-120b");
 
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

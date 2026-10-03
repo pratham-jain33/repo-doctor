@@ -51,6 +51,32 @@
 
       <p class="trust" id="trust-line">No token needed for public repos. Your browser talks straight to GitHub's API. Nothing is stored, nothing is sent anywhere else.</p>
 
+      <div class="token-box groq-box">
+        <div class="groq-promo" id="groq-promo">
+          <h3><i data-lucide="sparkles"></i> Unlock AI fixes</h3>
+          <p>The audit tells you what&apos;s broken. <strong>AI fixes it.</strong> A real README for every repo, the About box filled in, a LICENSE added &mdash; delivered as pull requests you merge. Runs on your Groq key and free quota. The key stays in this browser and is only ever sent to api.groq.com. Grab one at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>.</p>
+        </div>
+        <div class="token-form" id="groq-form">
+          <div class="input-row">
+            <i data-lucide="lock" class="input-icon"></i>
+            <input id="groq-input" type="password" placeholder="paste groq key here" spellcheck="false" autocapitalize="off" autocomplete="off">
+            <button type="button" class="btn btn-primary" id="groq-go">Unlock AI fixes <i data-lucide="arrow-right"></i></button>
+          </div>
+          <div class="token-row">
+            <label class="check"><input type="checkbox" id="groq-remember" checked><span class="custom-check"><i data-lucide="check"></i></span> remember in this browser</label>
+            <button type="button" class="btn btn-ghost btn-mini" id="groq-show">show</button>
+          </div>
+          <p class="form-error" id="groq-error" hidden></p>
+        </div>
+        <div class="token-active" id="groq-active" hidden>
+          <div class="token-active-info">
+            <p class="token-active-line"><i data-lucide="check"></i> <span>Groq key connected</span></p>
+            <p class="muted small">AI fixes ready &middot; runs on your key and quota</p>
+          </div>
+          <button type="button" class="btn btn-ghost" id="groq-forget"><i data-lucide="trash-2"></i> forget key</button>
+        </div>
+      </div>
+
       <div class="token-box">
         <button class="token-toggle" id="token-toggle" type="button"><i data-lucide="key-round"></i> Have a token? Audit private repos too</button>
         <div class="token-form" id="token-form" hidden>
@@ -76,29 +102,6 @@
         <p class="token-note" id="token-note" hidden></p>
       </div>
 
-      <div class="token-box">
-        <button class="token-toggle" id="groq-toggle" type="button"><i data-lucide="sparkles"></i> Want AI fixes? Bring your own Groq key</button>
-        <div class="token-form" id="groq-form" hidden>
-          <p class="token-explainer">AI fixes run on <strong>your</strong> Groq key and quota. The free tier is plenty. Grab one at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. It stays in this browser and is only ever sent to api.groq.com.</p>
-          <div class="input-row">
-            <i data-lucide="lock" class="input-icon"></i>
-            <input id="groq-input" type="password" placeholder="paste groq key here" spellcheck="false" autocapitalize="off" autocomplete="off">
-            <button type="button" class="btn btn-primary" id="groq-go">Connect <i data-lucide="arrow-right"></i></button>
-          </div>
-          <div class="token-row">
-            <label class="check"><input type="checkbox" id="groq-remember" checked><span class="custom-check"><i data-lucide="check"></i></span> remember in this browser</label>
-            <button type="button" class="btn btn-ghost btn-mini" id="groq-show">show</button>
-          </div>
-          <p class="form-error" id="groq-error" hidden></p>
-        </div>
-        <div class="token-active" id="groq-active" hidden>
-          <div class="token-active-info">
-            <p class="token-active-line"><i data-lucide="check"></i> <span>Groq key connected</span></p>
-            <p class="muted small">AI fixes ready · runs on your key and quota</p>
-          </div>
-          <button type="button" class="btn btn-ghost" id="groq-forget"><i data-lucide="trash-2"></i> forget key</button>
-        </div>
-      </div>
     </div>
 
     <div id="how" class="steps">
