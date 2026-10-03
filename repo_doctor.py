@@ -100,7 +100,7 @@ def get_repo_meta(owner, name):
     """description, homepage, topics, license id in one call."""
     out, err = gh_api(
         f"repos/{owner}/{name}",
-        jq="{description: .description, homepage: .homepage, topics: (.topics // []), license: .license.spdx_id}",
+        jq="{description: .description, homepage: .homepage, topics: (.topics // []), license: .license.spdx_id, default_branch: .default_branch}",
     )
     if err:
         return None, err
@@ -108,6 +108,14 @@ def get_repo_meta(owner, name):
         return json.loads(out), None
     except json.JSONDecodeError:
         return None, "bad json from api"
+
+
+def get_branch_protected(owner, name, branch):
+    """True/False for default-branch protection, or (None, error)."""
+    out, err = gh_api(f"repos/{owner}/{name}/branches/{branch}", jq=".protected")
+    if err:
+        return None, err
+    return out.strip() == "true", None
 
 
 def get_readme(owner, name):
@@ -182,6 +190,13 @@ def audit_repo(owner, repo):
         missing.append("about: no topics/tags")
     if not meta.get("license") or meta["license"] in ("NOASSERTION",):
         missing.append("license: no LICENSE file detected")
+
+    # --- Branch protection ---
+    prot, err = get_branch_protected(owner, name, meta.get("default_branch") or "main")
+    if err:
+        warnings.append("protection: could not be checked")
+    elif prot is False:
+        missing.append("protection: default branch is not protected")
 
     # --- README ---
     readme, err = get_readme(owner, name)

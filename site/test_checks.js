@@ -3,6 +3,7 @@ const {
   sectionPresent,
   auditRepoMeta,
   auditReadme,
+  auditProtection,
   scoreFor,
 } = require("./checks.js");
 
@@ -64,6 +65,13 @@ check("perfect score", scoreFor(0, 0) === 100);
 check("missing penalty", scoreFor(1, 0) === 88);
 check("warning penalty", scoreFor(0, 1) === 96);
 check("floor at zero", scoreFor(50, 50) === 0);
+
+
+// --- branch protection ---
+check("unprotected branch is missing", auditProtection(false).missing.includes("protection: default branch is not protected"));
+check("protected branch is clean", auditProtection(true).missing.length === 0 && auditProtection(true).warnings.length === 0);
+check("unchecked protection is not flagged", auditProtection(null).missing.length === 0);
+check("protection miss costs 12", scoreFor(1, 0) === 88);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

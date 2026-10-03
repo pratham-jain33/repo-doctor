@@ -126,6 +126,31 @@ async function fetchReadme(owner, repo) {
   }
 }
 
+async function fetchBranchProtected(owner, repo, branch) {
+  // The branches endpoint is public for public repos and answers with
+  // { protected: true/false }. One extra API call per repo.
+  try {
+    const b = await gh(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches/${encodeURIComponent(branch || "main")}`);
+    return b.protected === true;
+  } catch (e) {
+    if (e.type === "notfound") return null; // empty repo, no branches yet
+    throw e;
+  }
+}
+
+// Rate-limit and auth failures stop the audit; retry resumes where it left off.
+function auditHardStop(e, total, completed) {
+  if (e.type !== "ratelimit" && e.type !== "badauth") return false;
+  document.getElementById("audit-error-msg").textContent = e.type === "badauth"
+    ? "Your token was rejected mid-audit. Reconnect a fresh token on the home page, then retry to pick up where you left off."
+    : state.token
+      ? `GitHub's rate limit was hit with ${total - completed} repos left unchecked. Try again after ${e.reset.toLocaleTimeString()} — retry resumes where it stopped.`
+      : `GitHub's unauthenticated cap is 60 requests an hour, and ${total - completed} repos were not checked. Connect a token on the home page for 5,000/hr and private repos, or try again after ${e.reset.toLocaleTimeString()} — retry resumes where it stopped.`;
+  document.getElementById("audit-error").hidden = false;
+  icons();
+  return true; // keep state.results: retry resumes, nothing is lost
+}
+
 /* POST/PUT/PATCH against the GitHub API. Only used for fixes the user
    explicitly applies; the audit itself stays read-only. */
 async function ghWrite(method, path, body) {
@@ -593,27 +618,28 @@ async function startAudit(resume) {
 
     let readme = null;
     let repoNote = null;
+    let isProtected = null;
+    let protNote = null;
     try {
       readme = await fetchReadme(state.username, name);
     } catch (e) {
-      if (e.type === "ratelimit" || e.type === "badauth") {
-        document.getElementById("audit-error-msg").textContent = e.type === "badauth"
-          ? "Your token was rejected mid-audit. Reconnect a fresh token on the home page, then retry to pick up where you left off."
-          : state.token
-            ? `GitHub's rate limit was hit with ${total - completed} repos left unchecked. Try again after ${e.reset.toLocaleTimeString()} — retry resumes where it stopped.`
-            : `GitHub's unauthenticated cap is 60 requests an hour, and ${total - completed} repos were not checked. Connect a token on the home page for 5,000/hr and private repos, or try again after ${e.reset.toLocaleTimeString()} — retry resumes where it stopped.`;
-        document.getElementById("audit-error").hidden = false;
-        icons();
-        return; // keep state.results: retry resumes, nothing is lost
-      }
+      if (auditHardStop(e, total, completed)) return;
       repoNote = "readme: could not be checked (request failed)";
+    }
+    try {
+      isProtected = await fetchBranchProtected(state.username, name, repo.default_branch);
+    } catch (e) {
+      if (auditHardStop(e, total, completed)) return;
+      protNote = "protection: could not be checked (request failed)";
     }
 
     const meta = auditRepoMeta(repo);
     const rd = auditReadme(readme);
-    const missing = [...meta.missing, ...rd.missing];
-    const warnings = [...meta.warnings, ...rd.warnings];
+    const pr = auditProtection(isProtected);
+    const missing = [...meta.missing, ...rd.missing, ...pr.missing];
+    const warnings = [...meta.warnings, ...rd.warnings, ...pr.warnings];
     if (repoNote) warnings.push(repoNote);
+    if (protNote) warnings.push(protNote);
     state.results.push({ name, url: repo.html_url, fork: repo.fork, missing, warnings });
     completed++;
 
@@ -985,7 +1011,22 @@ function fixKinds(r) {
     readme: all.some((m) => m.startsWith("readme:")),
     about: all.some((m) => m.startsWith("about:")),
     license: all.some((m) => m.startsWith("license:")),
+    protection: all.some((m) => m.startsWith("protection:")),
   };
+}
+
+async function protectBranch(owner, name, branch) {
+  // Safe defaults mirroring GitHub's "Protect this branch" button:
+  // block force-pushes and deletion, require nothing else, so normal
+  // pushes to the default branch keep working.
+  await ghWrite("PUT", `/repos/${owner}/${name}/branches/${encodeURIComponent(branch)}/protection`, {
+    required_status_checks: null,
+    enforce_admins: false,
+    required_pull_request_reviews: null,
+    restrictions: null,
+    allow_force_pushes: false,
+    allow_deletions: false,
+  });
 }
 
 function fixErrorText(e) {
@@ -1011,7 +1052,7 @@ function attachFixPanels() {
     panel.className = "fix-panel";
     panel.innerHTML = `
       <div class="fix-title"><i data-lucide="sparkles"></i> AI fixes</div>
-      <p class="fix-lede muted">AI drafts the README, suggests About fields, and adds a MIT LICENSE. File changes arrive as a PR you merge. About-box fields apply instantly.</p>
+      <p class="fix-lede muted">AI drafts the README, suggests About fields, and adds a MIT LICENSE. File changes arrive as a PR you merge. About-box fields and branch protection apply instantly.</p>
       <button class="btn btn-primary btn-mini" data-fix-start>Fix with AI <i data-lucide="arrow-right"></i></button>
       <div class="fix-work" hidden></div>`;
     body.appendChild(panel);
@@ -1047,6 +1088,7 @@ function renderFixPreview(name, kinds, ctx, data, work) {
     kinds.readme ? `<label class="check"><input type="checkbox" data-t="readme" checked><span class="custom-check"><i data-lucide="check"></i></span> README via PR</label>` : "",
     kinds.about ? `<label class="check"><input type="checkbox" data-t="about" checked><span class="custom-check"><i data-lucide="check"></i></span> Apply About box</label>` : "",
     kinds.license ? `<label class="check"><input type="checkbox" data-t="license" checked><span class="custom-check"><i data-lucide="check"></i></span> MIT LICENSE via PR</label>` : "",
+    kinds.protection ? `<label class="check"><input type="checkbox" data-t="protection" checked><span class="custom-check"><i data-lucide="check"></i></span> Protect default branch</label>` : "",
   ].join("");
   work.innerHTML = `
     ${kinds.readme ? `<h4 class="fix-title" style="margin-top:0.4rem">README preview</h4><div class="md-preview">${mdToHtml(data.readme)}</div>` : ""}
@@ -1087,6 +1129,10 @@ async function applyFixes(name, kinds, ctx, data, work) {
         topics: work.querySelector('[data-f="topics"]').value.trim(),
       });
       lines.push("About box updated on GitHub.");
+    }
+    if (want.protection && kinds.protection) {
+      await protectBranch(owner, name, ctx.repo.default_branch || "main");
+      lines.push("Default branch protected.");
     }
     const files = [];
     if (want.readme && kinds.readme) files.push({ path: "README.md", content: data.readme });

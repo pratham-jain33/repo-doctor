@@ -76,6 +76,14 @@ function auditRepoMeta(repo) {
   return { missing, warnings };
 }
 
+/* isProtected: true/false from the branches API, or null when it could not be checked. */
+function auditProtection(isProtected) {
+  const missing = [];
+  const warnings = [];
+  if (isProtected === false) missing.push("protection: default branch is not protected");
+  return { missing, warnings };
+}
+
 /* md = README markdown string, or null when the repo has no README. */
 function auditReadme(md) {
   const missing = [];
@@ -115,6 +123,7 @@ if (typeof module !== "undefined") {
     sectionPresent,
     auditRepoMeta,
     auditReadme,
+    auditProtection,
     scoreFor,
   };
 }

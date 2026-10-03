@@ -115,6 +115,12 @@ const w4 = pj({ readme: "# Hi", description: "d", topics: [] }).website;
 check("missing website defaults to empty", w4 === "");
 check("prompt asks for website from evidence", prompt.system.includes("\"website\"") && prompt.system.includes("Never invent"));
 
+// 3c. fixKinds picks up the protection kind
+const kindsP = V(`fixKinds({missing: ["protection: default branch is not protected"], warnings: []})`);
+check("fixKinds flags protection", kindsP.protection === true && kindsP.readme === false);
+const kindsC = V(`fixKinds({missing: [], warnings: []})`);
+check("fixKinds clean when nothing missing", kindsC.protection === false);
+
 // 4. markdown preview renderer
 const html = V(`mdToHtml('# Title\\n\\nHello **bold** and \`code\`.\\n\\n- one\\n- two\\n\\n[link](https://x.com)\\n\\n---\\n\\n\`\`\`\\ncode()\\n\`\`\`')`);
 check("h1 rendered", html.includes("<h1>Title</h1>"));
