@@ -16,7 +16,7 @@
 <header class="topbar">
   <div class="wrap topbar-inner">
     <a class="brand" href="#" id="brand-home">
-      <img src="logo.svg" class="brand-logo" alt="repo-doctor logo">
+      <i data-lucide="stethoscope"></i>
       <span>repo-doctor</span>
     </a>
     <nav class="topnav">
@@ -32,7 +32,10 @@
   <!-- ============ SCREEN: HOME ============ -->
   <section id="screen-home" class="screen">
     <div class="hero">
-      <div class="hero-badge"><i data-lucide="sparkles"></i> free forever, no sign-up</div>
+      <div class="hero-badges">
+        <div class="hero-badge"><i data-lucide="sparkles"></i> free forever, no sign-up</div>
+        <a class="hero-badge hero-badge-link" id="stars-pill" href="https://github.com/pratham-jain33/repo-doctor" target="_blank" rel="noopener" hidden><i data-lucide="star"></i> <span id="stars-count">0</span>&nbsp;stars</a>
+      </div>
       <h1>Your GitHub looks abandoned.<br><span class="hl">Fix it in an afternoon.</span></h1>
       <p class="lede">repo-doctor scans your public repos and tells you exactly what breaks the house standard: missing READMEs, empty descriptions, no topics, no license. Worst repos first.</p>
 

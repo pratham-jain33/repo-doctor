@@ -609,4 +609,16 @@ document.getElementById("download-report").addEventListener("click", () => {
   URL.revokeObjectURL(a.href);
 });
 
+// Live star count on the hero badge. Fails silently offline.
+(async function loadStars() {
+  try {
+    const res = await fetch(API + "/repos/pratham-jain33/repo-doctor");
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById("stars-count").textContent = data.stargazers_count;
+    document.getElementById("stars-pill").hidden = false;
+    icons();
+  } catch (e) {}
+})();
+
 icons();

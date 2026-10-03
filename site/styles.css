@@ -47,8 +47,12 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 
 /* ---------- hero ---------- */
 .hero { text-align: center; padding: 3.5rem 0 3rem; }
-.hero-badge { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0.3rem 0.9rem; font-size: 0.8rem; color: var(--muted); margin-bottom: 1.4rem; }
+.hero-badges { display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.4rem; }
+.hero-badge { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0.3rem 0.9rem; font-size: 0.8rem; color: var(--muted); }
+.hero-badge[hidden] { display: none; }
 .hero-badge svg { width: 14px; height: 14px; color: var(--amber); }
+.hero-badge-link { text-decoration: none; }
+.hero-badge-link:hover { border-color: var(--amber-dim); color: var(--ink); }
 .hero h1 { font-size: clamp(2.2rem, 5.5vw, 3.6rem); font-weight: 800; letter-spacing: -0.02em; }
 .hero h1 .hl { color: var(--amber); }
 .lede { color: var(--muted); font-size: 1.1rem; max-width: 620px; margin: 1.2rem auto 0; }
@@ -77,11 +81,11 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .trust svg { width: 16px; height: 16px; color: var(--green); flex-shrink: 0; }
 
 /* ---------- token box ---------- */
-.token-box { max-width: 560px; margin: 1.6rem auto 0; border: 1px dashed var(--line); border-radius: var(--radius); padding: 1rem 1.2rem; text-align: left; }
-.token-toggle { display: inline-flex; align-items: center; gap: 0.5rem; background: none; border: none; color: var(--amber); font-family: "Inter"; font-weight: 600; font-size: 0.92rem; cursor: pointer; }
-.token-toggle svg { width: 16px; height: 16px; }
-.token-toggle:hover { text-decoration: underline; }
-.token-form { margin-top: 1rem; }
+.token-box { max-width: 560px; margin: 1.8rem auto 0; text-align: center; }
+.token-toggle { display: inline-flex; align-items: center; gap: 0.55rem; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 0.65rem 1.35rem; font-size: 0.92rem; font-weight: 600; cursor: pointer; font-family: "Inter"; }
+.token-toggle svg { width: 16px; height: 16px; color: var(--amber); }
+.token-toggle:hover { border-color: var(--amber-dim); }
+.token-form { margin-top: 1.1rem; text-align: left; border: 1px dashed var(--line); border-radius: var(--radius); padding: 1.1rem 1.2rem; }
 .token-form .muted { margin-bottom: 0.9rem; }
 .token-row { display: flex; justify-content: space-between; align-items: center; margin-top: 0.7rem; }
 .btn-mini { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
