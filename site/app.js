@@ -10,7 +10,9 @@ const state = {
   username: "",
   token: "",
   tokenLogin: "",
-  repos: [],        // raw GitHub repo objects
+  fetchedRepos: [], // everything the API returned, forks included
+  repos: [],        // working set after the fork filter
+  excludeForks: true,
   selected: new Set(),
   results: [],      // audit results
 };
@@ -221,6 +223,9 @@ document.getElementById("token-show").addEventListener("click", (e) => {
   } catch (e) {
     state.token = "";
     try { localStorage.removeItem(TOKEN_KEY); } catch (e2) {}
+    const note = document.getElementById("token-note");
+    note.textContent = "Your saved token was rejected by GitHub, so it was removed. Paste a fresh one to reconnect.";
+    note.hidden = false;
   }
 })();
 
@@ -233,7 +238,7 @@ async function loadRepos() {
   list.innerHTML = `<p class="muted" style="padding:2rem 0;text-align:center">Fetching public repos for ${esc(state.username)}...</p>`;
   icons();
   try {
-    state.repos = await fetchAllRepos(state.username);
+    state.fetchedRepos = await fetchAllRepos(state.username);
   } catch (e) {
     list.innerHTML = "";
     showPickerError(e);
@@ -250,6 +255,19 @@ async function loadRepos() {
     return;
   }
   document.getElementById("picker-retry").hidden = false;
+  applyForkFilter();
+  if (!state.repos.length) {
+    list.innerHTML = "";
+    document.getElementById("picker-error-title").textContent = "Nothing to audit";
+    document.getElementById("picker-error-msg").textContent =
+      state.excludeForks && state.fetchedRepos.length
+        ? "Every repo here is a fork, and forks are excluded. Uncheck \"exclude forks\" to include them."
+        : `${state.username} has no repositories to audit.`;
+    document.getElementById("picker-retry").hidden = true;
+    errCard.hidden = false;
+    icons();
+    return;
+  }
   document.getElementById("repo-count").textContent = state.repos.length;
   document.getElementById("pick-cap").textContent = maxSelection();
   document.getElementById("mode-line").textContent = state.token
@@ -258,6 +276,23 @@ async function loadRepos() {
   renderPicker();
 }
 
+/* Forks are excluded from the working set at fetch time: they never appear
+   in the picker, never consume the selection cap, and never cost API calls. */
+function applyForkFilter() {
+  state.repos = state.excludeForks
+    ? state.fetchedRepos.filter((r) => !r.fork)
+    : [...state.fetchedRepos];
+  for (const name of [...state.selected]) {
+    if (!state.repos.some((r) => r.name === name)) state.selected.delete(name);
+  }
+}
+
+document.getElementById("exclude-forks").addEventListener("change", (e) => {
+  state.excludeForks = e.target.checked;
+  applyForkFilter();
+  renderPicker();
+});
+
 function showPickerError(e) {
   const errCard = document.getElementById("picker-error");
   const title = document.getElementById("picker-error-title");
@@ -265,6 +300,9 @@ function showPickerError(e) {
   if (e.type === "notfound") {
     title.textContent = "User not found";
     msg.textContent = `No GitHub user called "${state.username}". Check the spelling and try again.`;
+  } else if (e.type === "badauth") {
+    title.textContent = "Token rejected";
+    msg.textContent = "GitHub rejected your token. Forget it on the home page and connect a fresh one.";
   } else if (e.type === "ratelimit") {
     title.textContent = "GitHub rate limit hit";
     msg.textContent = state.token
@@ -283,9 +321,7 @@ document.getElementById("picker-back").addEventListener("click", () => showScree
 
 function visibleRepos() {
   const q = document.getElementById("picker-filter").value.trim().toLowerCase();
-  const hideForks = document.getElementById("hide-forks").checked;
   return state.repos.filter((r) => {
-    if (hideForks && r.fork) return false;
     if (q && !r.name.toLowerCase().includes(q) && !((r.description || "").toLowerCase().includes(q))) return false;
     return true;
   });
@@ -304,7 +340,8 @@ function renderPicker() {
     const badges = `${r.fork ? '<span class="badge-fork">fork</span>' : ""}${r.private ? '<span class="badge-private">private</span>' : ""}`;
     return `
     <label class="repo-row ${isSel ? "selected" : ""} ${disabled ? "capped" : ""}" data-name="${esc(r.name)}">
-      <input type="checkbox" ${isSel ? "checked" : ""} ${disabled ? "disabled" : ""} data-repo="${esc(r.name)}">
+      <input type="checkbox" ${isSel ? "checked" : ""} ${disabled ? "disabled" : ""} data-repo="${esc(r.name)}" tabindex="-1">
+      <span class="custom-check"><i data-lucide="check"></i></span>
       <div class="repo-info">
         <div class="repo-name">${esc(r.name)} ${badges}</div>
         ${r.description ? `<div class="repo-desc">${esc(r.description)}</div>` : ""}
@@ -372,69 +409,77 @@ document.getElementById("select-none").addEventListener("click", () => {
   renderPicker();
 });
 
-document.getElementById("hide-forks").addEventListener("change", renderPicker);
 document.getElementById("picker-filter").addEventListener("input", renderPicker);
 
 /* ---------------- screen 3: audit ---------------- */
 
-document.getElementById("run-audit").addEventListener("click", async () => {
+document.getElementById("run-audit").addEventListener("click", () => startAudit(false));
+document.getElementById("audit-retry").addEventListener("click", () => startAudit(true));
+
+async function startAudit(resume) {
   const names = [...state.selected];
+  if (!resume) state.results = [];
+  const done = new Set(state.results.map((r) => r.name));
+  const queue = resume ? names.filter((n) => !done.has(n)) : names;
+  if (!queue.length && resume) {
+    renderResults();
+    return;
+  }
   showScreen("screen-audit");
-  document.getElementById("audit-total").textContent = names.length;
+  const total = names.length;
+  document.getElementById("audit-total").textContent = total;
   document.getElementById("audit-error").hidden = true;
   const log = document.getElementById("audit-log");
-  log.innerHTML = "";
+  if (!resume) log.innerHTML = "";
   const fill = document.getElementById("progress-fill");
   const label = document.getElementById("progress-label");
-  state.results = [];
 
   const byName = Object.fromEntries(state.repos.map((r) => [r.name, r]));
+  let completed = state.results.length;
 
-  for (let i = 0; i < names.length; i++) {
-    const name = names[i];
+  for (let i = 0; i < queue.length; i++) {
+    const name = queue[i];
     const repo = byName[name];
-    label.textContent = `Checking ${name} (${i + 1} of ${names.length})`;
+    label.textContent = `Checking ${name} (${completed + 1} of ${total})`;
 
-    let readme;
+    let readme = null;
+    let repoNote = null;
     try {
       readme = await fetchReadme(state.username, name);
     } catch (e) {
-      if (e.type === "ratelimit") {
-        document.getElementById("audit-error-msg").textContent = state.token
-          ? `GitHub's rate limit was hit with ${names.length - i} repos left unchecked. Try again after ${e.reset.toLocaleTimeString()}.`
-          : `GitHub's unauthenticated cap is 60 requests an hour, and ${names.length - i} repos were not checked. Connect a token on the home page for 5,000/hr and private repos, or try again after ${e.reset.toLocaleTimeString()}.`;
+      if (e.type === "ratelimit" || e.type === "badauth") {
+        document.getElementById("audit-error-msg").textContent = e.type === "badauth"
+          ? "Your token was rejected mid-audit. Reconnect a fresh token on the home page, then retry to pick up where you left off."
+          : state.token
+            ? `GitHub's rate limit was hit with ${total - completed} repos left unchecked. Try again after ${e.reset.toLocaleTimeString()} — retry resumes where it stopped.`
+            : `GitHub's unauthenticated cap is 60 requests an hour, and ${total - completed} repos were not checked. Connect a token on the home page for 5,000/hr and private repos, or try again after ${e.reset.toLocaleTimeString()} — retry resumes where it stopped.`;
         document.getElementById("audit-error").hidden = false;
         icons();
-        break;
+        return; // keep state.results: retry resumes, nothing is lost
       }
-      readme = null; // any other fetch failure: grade what we have
+      repoNote = "readme: could not be checked (request failed)";
     }
 
     const meta = auditRepoMeta(repo);
     const rd = auditReadme(readme);
     const missing = [...meta.missing, ...rd.missing];
     const warnings = [...meta.warnings, ...rd.warnings];
+    if (repoNote) warnings.push(repoNote);
     state.results.push({ name, url: repo.html_url, fork: repo.fork, missing, warnings });
+    completed++;
 
     const line = document.createElement("div");
-    const worst = missing.length > 0;
-    line.className = "log-line " + (worst ? (missing.length >= 5 ? "bad" : "warn") : "ok");
-    line.innerHTML = `<i data-lucide="${worst ? "x-circle" : "check-circle-2"}"></i><span>${esc(name)}: ${missing.length} missing, ${warnings.length} warnings</span>`;
+    line.className = "log-line " + (missing.length >= 5 ? "bad" : missing.length > 0 ? "warn" : "ok");
+    line.innerHTML = `<i data-lucide="${missing.length ? "x-circle" : "check-circle-2"}"></i><span>${esc(name)}: ${missing.length} missing, ${warnings.length} warnings</span>`;
     log.appendChild(line);
     icons();
 
-    fill.style.width = `${Math.round(((i + 1) / names.length) * 100)}%`;
+    fill.style.width = `${Math.round((completed / total) * 100)}%`;
   }
 
-  if (state.results.length) {
-    label.textContent = `Done. ${state.results.length} repos audited.`;
-    setTimeout(renderResults, 600);
-  }
-});
-
-document.getElementById("audit-retry").addEventListener("click", () => {
-  document.getElementById("run-audit").click();
-});
+  label.textContent = `Done. ${state.results.length} repos audited.`;
+  setTimeout(renderResults, 600);
+}
 
 /* ---------------- screen 4: results ---------------- */
 

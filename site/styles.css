@@ -88,6 +88,7 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .token-active { margin-top: 0.6rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .token-active p { display: flex; align-items: center; gap: 0.5rem; font-size: 0.92rem; }
 .token-active p svg { width: 16px; height: 16px; color: var(--green); }
+.token-note { color: var(--amber); font-size: 0.85rem; margin-top: 0.7rem; }
 
 /* ---------- steps ---------- */
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 3.5rem 0; }
@@ -124,7 +125,12 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .repo-row:hover { border-color: var(--faint); }
 .repo-row.selected { border-color: var(--amber-dim); background: #171307; }
 .repo-row.capped { opacity: 0.45; cursor: not-allowed; }
-.repo-row input { accent-color: var(--amber); width: 18px; height: 18px; flex-shrink: 0; cursor: pointer; }
+.repo-row input[type="checkbox"] { position: absolute; opacity: 0; pointer-events: none; width: 0; }
+.custom-check { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--faint); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s, border-color 0.15s; background: transparent; }
+.custom-check svg { width: 14px; height: 14px; color: #1a1005; opacity: 0; transform: scale(0.4); transition: opacity 0.15s, transform 0.15s; }
+.repo-row.selected .custom-check { background: var(--amber); border-color: var(--amber); }
+.repo-row.selected .custom-check svg { opacity: 1; transform: scale(1); }
+.repo-row.capped .custom-check { opacity: 0.35; }
 .repo-info { flex: 1; min-width: 0; }
 .repo-name { font-weight: 600; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .repo-desc { color: var(--muted); font-size: 0.87rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

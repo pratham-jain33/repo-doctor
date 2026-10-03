@@ -103,5 +103,27 @@ V('state.selected.clear()');
 for (let i = 0; i < 30; i++) V(`toggleRepo("repo-${i}", true)`);
 check("free tier again: capped at 25", V("state.selected.size") === 25);
 
+// 9. exclude-forks drops forks from the working set AND the selection
+V(`state.fetchedRepos = ${JSON.stringify([
+  {name:"keep", fork:false}, {name:"forked", fork:true}
+])}`);
+V('state.selected.clear(); state.selected.add("keep"); state.selected.add("forked")');
+V('state.excludeForks = true; applyForkFilter()');
+check("forks excluded from working set",
+  V("state.repos.length") === 1 && V('state.repos[0].name') === "keep");
+check("forks dropped from selection",
+  V("state.selected.size") === 1 && V('state.selected.has("keep")'));
+V('state.excludeForks = false; applyForkFilter()');
+check("unchecking brings forks back", V("state.repos.length") === 2);
+
+// 10. custom checkbox markup present in picker rows
+V('state.excludeForks = true; applyForkFilter()');
+V('state.selected.clear()');
+V('renderPicker()');
+check("rows use custom checkbox UI",
+  els["repo-list"].innerHTML.includes('class="custom-check"'));
+check("no native checkbox styling leak",
+  !els["repo-list"].innerHTML.includes('data-lucide="hide-forks"'));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

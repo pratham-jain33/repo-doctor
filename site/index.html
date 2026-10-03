@@ -66,6 +66,7 @@
           <p><i data-lucide="check"></i> Connected as <strong id="token-user"></strong>. Private repos included, up to 100 per audit.</p>
           <button type="button" class="btn btn-ghost" id="token-forget"><i data-lucide="trash-2"></i> forget token</button>
         </div>
+        <p class="token-note" id="token-note" hidden></p>
       </div>
     </div>
 
@@ -130,7 +131,7 @@
       <div class="picker-actions">
         <button class="btn btn-ghost" id="select-all">Select all</button>
         <button class="btn btn-ghost" id="select-none">Clear</button>
-        <label class="check"><input type="checkbox" id="hide-forks"> hide forks</label>
+        <label class="check"><input type="checkbox" id="exclude-forks" checked> exclude forks</label>
       </div>
     </div>
     <div class="picker-search">
