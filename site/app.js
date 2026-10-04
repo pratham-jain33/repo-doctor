@@ -1368,7 +1368,7 @@ async function collectSectionState(panel, work) {
       existing.add(file);
       try {
         const b64 = await readFileB64(f);
-        if (b64) st.shots.push({ file, b64 });
+        if (b64) st.shots.push({ file, b64, type: f.type || "image/png" });
       } catch (e) { /* skip unreadable files */ }
     }
     fi.value = "";
@@ -1394,12 +1394,10 @@ function sectionInputs(name, work, ctx) {
       if (st.skipShots) {
         return `<div class="fix-sec"><span>screenshots</span><p class="muted small">Skipped. No Screenshots section will be added. <button type="button" class="link-btn" data-unskip-shots>undo</button></p></div>`;
       }
-      const staged = st.shots.length
-        ? `<p class="muted small">` + st.shots.length + ` screenshot` + (st.shots.length > 1 ? "s" : "") + ` staged: ` + st.shots.map((x) => esc(x.file)).join(", ") + `</p>`
-        : "";
-      return `<div class="fix-sec"><span>screenshots</span><div class="shot-choice">`
+      return `<div class="fix-sec"><div class="fix-sec-head"><span>screenshots</span></div><div class="shot-choice">`
         + `<label class="btn btn-ghost btn-mini shot-upload">Upload screenshots<input type="file" data-sec-files accept="image/*" multiple hidden></label>`
-        + `<button type="button" class="btn btn-ghost btn-mini" data-skip-shots>Skip</button></div>` + staged + `</div>`;
+        + `<button type="button" class="btn btn-ghost btn-mini" data-skip-shots>Skip</button></div>`
+        + `<div class="shot-staged" data-shot-staged></div></div>`;
     }
     const hasNote = st.hints[s] && String(st.hints[s]).trim();
     return `<div class="fix-sec"><div class="fix-sec-head"><span>` + esc(s) + `</span>`
@@ -1415,6 +1413,25 @@ function sectionInputs(name, work, ctx) {
     <p class="muted small fix-sec-note">The AI writes these from your code — nothing to fill in.` + readLine + ` Add a note only to steer a section, or pick screenshots, then hit Regenerate.</p>
     ` + rows + `
   </div>`;
+}
+
+// Thumbnails the moment files are picked, so the upload is never a mystery.
+function renderShotStaged(work) {
+  const panel = work.closest(".fix-panel");
+  const st = panel._fixState || { hints: {}, shots: [] };
+  const el = work.querySelector("[data-shot-staged]");
+  if (!el) return;
+  el.innerHTML = st.shots.map((s, i) =>
+    `<span class="shot-thumb"><img src="data:${esc(s.type || "image/png")};base64,${s.b64}" alt="screenshot ${i + 1}">`
+    + `<button type="button" data-shot-remove="${i}" aria-label="remove screenshot">\u00d7</button></span>`
+  ).join("") + (st.shots.length
+    ? `<p class="muted small shot-staged-note">${st.shots.length} screenshot${st.shots.length > 1 ? "s" : ""} ready — they ride out with the README PR.</p>`
+    : "");
+  el.querySelectorAll("[data-shot-remove]").forEach((b) =>
+    b.addEventListener("click", () => {
+      st.shots.splice(Number(b.dataset.shotRemove), 1);
+      renderShotStaged(work);
+    }));
 }
 
 function renderFixPreview(name, kinds, ctx, data, work) {
@@ -1469,6 +1486,16 @@ function renderFixPreview(name, kinds, ctx, data, work) {
     renderFixPreview(name, kinds, ctx, data, work);
   });
   work.querySelector("[data-apply]").addEventListener("click", () => applyFixes(name, kinds, ctx, data, work));
+  renderShotStaged(work);
+  const fileInput = work.querySelector("[data-sec-files]");
+  if (fileInput) fileInput.addEventListener("change", async () => {
+    const panel = work.closest(".fix-panel");
+    const st = panel._fixState || (panel._fixState = { hints: {}, shots: [] });
+    const stagedEl = work.querySelector("[data-shot-staged]");
+    if (stagedEl) stagedEl.innerHTML = `<p class="muted small">Reading…</p>`;
+    await collectSectionState(panel, work);
+    renderShotStaged(work);
+  });
 }
 
 async function applyFixes(name, kinds, ctx, data, work) {

@@ -243,6 +243,23 @@ check("uses gpt-oss-120b", V("GROQ_MODEL") === "openai/gpt-oss-120b");
 
 // 8. connectGroq touches only elements that exist (regression: it once
 //    referenced the removed #groq-promo, so valid keys died silently).
+// 3m. screenshot uploads give immediate visual feedback
+const __stagedEl = { innerHTML: "", querySelectorAll() { return []; } };
+sandbox.__w = {
+  closest: () => ({ _fixState: { hints: {}, shots: [{ file: "a.png", b64: "QUJD", type: "image/png" }] } }),
+  querySelector: () => __stagedEl,
+};
+V(`renderShotStaged(__w)`);
+check("shot thumbnails render", __stagedEl.innerHTML.includes("shot-thumb") && __stagedEl.innerHTML.includes("data:image/png;base64,QUJD"));
+check("shot count note", __stagedEl.innerHTML.includes("1 screenshot ready"));
+const __stagedEl2 = { innerHTML: "x", querySelectorAll() { return []; } };
+sandbox.__w2 = {
+  closest: () => ({ _fixState: { hints: {}, shots: [] } }),
+  querySelector: () => __stagedEl2,
+};
+V(`renderShotStaged(__w2)`);
+check("no shots renders empty", __stagedEl2.innerHTML === "");
+
 (async () => {
   // repo filters live on the home screen, before fetching
   V(`state.fetchedRepos = [
