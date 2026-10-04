@@ -171,6 +171,19 @@ V(`(function(){ try { localStorage.setItem("rd_results_" + state.username, JSON.
 V(`state.results = []; state.auditedAt = 0; restoreResults();`);
 check("restoreResults round-trip", V(`state.results.length`) === 1 && V(`state.auditedAt`) === 12345 && V(`lastScore("a")`) === 88);
 V(`state.results = []; state.auditedAt = 0; state.username = "";`);
+// 3l. READMEs are read at fetch time; the audit reuses them
+V(`state.repos = [{ name: "r", description: "d", homepage: "", topics: [], license: { spdx_id: "MIT" }, pushed_at: "2026-01-01T00:00:00Z" }];`);
+V(`state.readmes = { r: ["# r", "", "A fine repo description here.", "", "## Motivation", "X", "", "## Tech stack", "X", "", "## Features", "X", "", "## Installation", "X", "", "## Usage", "X", ""].join(String.fromCharCode(10)) };`);
+const rs = V(`readmeScore("r")`);
+check("readmeScore partial (no protection penalty)", rs === 52);
+check("readmeScore unknown repo", V(`readmeScore("nope")`) === null);
+V(`state.results = [{ name: "r", missing: ["a","b","c"], warnings: [] }];`);
+check("ringScore prefers full audit score", V(`ringScore("r")`) === 64);
+V(`state.results = [];`);
+check("ringScore falls back to partial", V(`ringScore("r")`) === 52);
+V(`state.readmeError = {};`);
+V(`state.repos = []; state.readmes = {}; state.results = [];`);
+
 // 3k. auto-badges from data we already have
 check("shield url", V(`shield("License", "MIT", "yellow")`) === "![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)");
 check("manifestVersion pyproject", V(`manifestVersion("pyproject.toml", '[project]\\nversion = "0.1.0"')`) === "0.1.0");
@@ -231,6 +244,12 @@ check("uses gpt-oss-120b", V("GROQ_MODEL") === "openai/gpt-oss-120b");
 // 8. connectGroq touches only elements that exist (regression: it once
 //    referenced the removed #groq-promo, so valid keys died silently).
 (async () => {
+  // getReadmeCached reuses the picker's README instead of refetching
+  V(`state.repos = [{ name: "r2", description: "d", homepage: "", topics: [], license: { spdx_id: "MIT" } }];`);
+  V(`state.readmes = { r2: "# r2" }; V2 = getReadmeCached;`);
+  const cached = await V(`getReadmeCached("u", "r2")`);
+  check("getReadmeCached reuses (no refetch)", cached === "# r2");
+  V(`state.repos = []; state.readmes = {};`);
   sandbox.fetch = async () => ({ ok: true, status: 200 });
   await V('connectGroq("gsk_test123", true)');
   check("valid key: groq-active shown", els["groq-active"].hidden === false);

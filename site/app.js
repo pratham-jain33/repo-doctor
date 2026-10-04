@@ -16,6 +16,10 @@ const state = {
   excludeForks: false, // default off; never persisted, always read from the checkbox
   selected: new Set(),
   results: [],      // audit results
+  auditedAt: 0,
+  readmes: {},      // README text per repo, fetched at picker time (batches of 5)
+  readmeError: {},  // repos whose README fetch failed; retried in the audit
+  readmeFetchId: 0, // cancellation token for the progressive fetch
 };
 
 function maxSelection() {
@@ -198,6 +202,9 @@ document.getElementById("username-form").addEventListener("submit", async (e) =>
   state.username = username;
   state.selected = new Set();
   state.results = [];
+  state.readmes = {};
+  state.readmeError = {};
+  state.readmeFetchId++;
   showScreen("screen-picker");
   await loadRepos();
 });
@@ -444,14 +451,19 @@ async function loadRepos() {
   }
   document.getElementById("repo-count").textContent = state.repos.length;
   document.getElementById("pick-cap").textContent = effectiveCap();
-  document.getElementById("mode-line").textContent = state.token
+  restoreResults();
+  refreshPickerNote();
+  renderPicker();
+  fetchReadmesProgressive();
+}
+
+function refreshPickerNote(extra) {
+  let t = state.token
     ? `Token connected as @${state.tokenLogin}: private repos included, 5,000 requests/hr.`
     : "Public repos only.";
-  restoreResults();
-  if (state.auditedAt) {
-    document.getElementById("mode-line").textContent += ` Scores from audit ${auditAgo(state.auditedAt)}.`;
-  }
-  renderPicker();
+  if (state.auditedAt) t += ` Scores from audit ${auditAgo(state.auditedAt)}.`;
+  if (extra) t += " " + extra;
+  document.getElementById("mode-line").textContent = t;
 }
 
 // Last audit's results, so the picker can show scores before the next audit.
@@ -537,17 +549,67 @@ function lastScore(name) {
   return r ? scoreFor(r.missing.length, r.warnings.length) : null;
 }
 
-// Worst first: lowest last-audit score, then oldest push. Repos never
-// audited sink below scored ones, oldest first.
+// Partial score from the README + repo metadata (no branch-protection check).
+// Available as soon as the picker's progressive README fetch reaches the repo.
+function readmeScore(name) {
+  if (!(name in state.readmes)) return null;
+  const repo = state.repos.find((r) => r.name === name);
+  if (!repo) return null;
+  const meta = auditRepoMeta(repo);
+  const rd = auditReadme(state.readmes[name]);
+  return scoreFor(meta.missing.length + rd.missing.length, meta.warnings.length + rd.warnings.length);
+}
+
+// What the picker ring shows: the full audit score when we have it,
+// otherwise the README-based partial score.
+function ringScore(name) {
+  const full = lastScore(name);
+  return full !== null ? full : readmeScore(name);
+}
+
+// Worst first: lowest score, then oldest push. Repos with no score yet
+// sink below scored ones, oldest first.
 function sortPickerRepos(repos) {
   return [...repos].sort((a, b) => {
-    const sa = lastScore(a.name), sb = lastScore(b.name);
+    const sa = ringScore(a.name), sb = ringScore(b.name);
     if (sa !== null && sb !== null) {
       if (sa !== sb) return sa - sb;
     } else if (sa !== null) return -1;
     else if (sb !== null) return 1;
     return new Date(a.pushed_at) - new Date(b.pushed_at);
   });
+}
+
+function updatePickerRing(name) {
+  const slot = document.querySelector(`[data-ring="${CSS.escape(name)}"]`);
+  if (!slot) return;
+  const sc = ringScore(name);
+  slot.innerHTML = sc === null ? "" : miniRing(sc);
+}
+
+// READMEs are read while the repo list is being browsed, in batches of 5,
+// so the audit later reuses them instead of fetching again.
+async function fetchReadmesProgressive() {
+  const id = ++state.readmeFetchId;
+  const pending = state.repos.filter((r) => !(r.name in state.readmes) && !state.readmeError[r.name]);
+  if (!pending.length) return;
+  for (let i = 0; i < pending.length; i += 5) {
+    if (id !== state.readmeFetchId) return; // superseded
+    const batch = pending.slice(i, i + 5);
+    await Promise.all(batch.map(async (r) => {
+      try {
+        state.readmes[r.name] = await fetchReadme(state.username, r.name);
+      } catch (e) {
+        state.readmeError[r.name] = true;
+      }
+      if (id === state.readmeFetchId) updatePickerRing(r.name);
+    }));
+    if (id !== state.readmeFetchId) return;
+    refreshPickerNote(`Reading READMEs ${Math.min(i + 5, pending.length)}/${pending.length}…`);
+  }
+  if (id !== state.readmeFetchId) return;
+  refreshPickerNote();
+  renderPicker(); // one final worst-first sort now that every ring is in
 }
 
 function renderPicker() {
@@ -565,7 +627,7 @@ function renderPicker() {
     <label class="repo-row ${isSel ? "selected" : ""} ${disabled ? "capped" : ""}" data-name="${esc(r.name)}">
       <input type="checkbox" ${isSel ? "checked" : ""} ${disabled ? "disabled" : ""} data-repo="${esc(r.name)}" tabindex="-1">
       <span class="custom-check"><i data-lucide="check"></i></span>
-      ${(() => { const sc = lastScore(r.name); return sc === null ? "" : miniRing(sc); })()}
+      <span class="ring-slot" data-ring="${esc(r.name)}">${(() => { const sc = ringScore(r.name); return sc === null ? "" : miniRing(sc); })()}</span>
       <div class="repo-info">
         <div class="repo-name">${esc(r.name)} ${badges}</div>
         ${r.description ? `<div class="repo-desc">${esc(r.description)}</div>` : ""}
@@ -640,7 +702,22 @@ document.getElementById("picker-filter").addEventListener("input", renderPicker)
 document.getElementById("run-audit").addEventListener("click", () => startAudit(false));
 document.getElementById("audit-retry").addEventListener("click", () => startAudit(true));
 
+// The audit never re-reads a README the picker already fetched.
+async function getReadmeCached(owner, name) {
+  if (state.readmeError[name]) {
+    const md = await fetchReadme(owner, name); // retry once
+    delete state.readmeError[name];
+    state.readmes[name] = md;
+    return md;
+  }
+  if (name in state.readmes) return state.readmes[name];
+  const md = await fetchReadme(owner, name);
+  state.readmes[name] = md;
+  return md;
+}
+
 async function startAudit(resume) {
+  state.readmeFetchId++; // stop the picker's progressive fetch; the audit takes over
   const names = [...state.selected];
   if (!resume) state.results = [];
   const done = new Set(state.results.map((r) => r.name));
@@ -671,7 +748,7 @@ async function startAudit(resume) {
     let isProtected = null;
     let protNote = null;
     try {
-      readme = await fetchReadme(state.username, name);
+      readme = await getReadmeCached(state.username, name);
     } catch (e) {
       if (auditHardStop(e, total, completed)) return;
       repoNote = "readme: could not be checked (request failed)";
