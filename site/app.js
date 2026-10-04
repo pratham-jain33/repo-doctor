@@ -963,13 +963,7 @@ async function groqChat(system, user) {
 }
 
 function buildFixPrompt(ctx) {
-  const hintLines = Object.entries(ctx.sectionHints || {})
-    .filter(([, v]) => v && String(v).trim())
-    .map(([k, v]) => `- ${k}: ${String(v).trim()}`);
-  const shots = ctx.screenshots || [];
-  const notesBlock = (hintLines.length || shots.length)
-    ? `\nUser notes for flagged README sections: weave each into its matching section, creating the section if needed:\n${hintLines.join("\n")}${shots.length ? `\n- screenshots: add a ## Screenshots section showing these images with relative paths (the files will be in the repo): ${shots.join(", ")}` : ""}\n`
-    : "";
+  const notesBlock = buildNotesBlock(ctx);
   const system = `You are repo-doctor's README writer. You reply with ONLY a JSON object, no markdown fences, no commentary:
 {"readme": "the full README.md", "description": "one line", "topics": ["t1", "t2"], "website": "https://..."}
 
@@ -1075,6 +1069,132 @@ function buildBadges(repo, manifestName, manifestBody) {
   const ver = manifestVersion(manifestName, manifestBody);
   if (ver) out.push(shield("version", "v" + ver, "brightgreen"));
   return out.join(" ");
+}
+
+const SECTION_GUIDANCE = {
+  "description": "README description — one or two honest lines about the project. Return just the text, NO ## heading.",
+  "motivation": "## Motivation — why this project exists, derived from what the code actually does.",
+  "tech/framework used": "## Tech stack — languages, frameworks, and key dependencies from the manifest and source files.",
+  "features": "## Features — bullet list of what it does, derived from the source files.",
+  "installation": "## Installation — copy-pasteable install steps from the manifest/Dockerfile. Never invent commands.",
+  "how to use": "## Usage — copy-pasteable usage from the code or existing README. Never invent commands.",
+  "build status": "## Build status — the real CI badge or workflow when one exists (never invent a badge); otherwise how to build and verify from the repo files.",
+  "code style": "## Code style — lint/format tools only if configured; otherwise the style observed in the source files.",
+  "screenshots": "## Screenshots — show the user-uploaded images using the relative paths given in the context.",
+  "code example": "## Code example — a short usage snippet from the existing README or the source files.",
+  "api reference": "## API reference — the public surface from the existing README, file names, and source files.",
+  "tests": "## Tests — how to run them, from manifest scripts or test files; if the repo has no tests, say so in one line.",
+};
+
+function buildNotesBlock(ctx) {
+  const hintLines = Object.entries(ctx.sectionHints || {})
+    .filter(([, v]) => v && String(v).trim())
+    .map(([k, v]) => `- ${k}: ${String(v).trim()}`);
+  const shots = ctx.screenshots || [];
+  return (hintLines.length || shots.length)
+    ? `\nUser notes for flagged README sections: weave each into its matching section:\n${hintLines.join("\n")}${shots.length ? `\n- screenshots: add a ## Screenshots section showing these images with relative paths (the files will be in the repo): ${shots.join(", ")}` : ""}\n`
+    : "";
+}
+
+// Targeted mode: the README exists, so generate ONLY the flagged sections.
+// The caller splices them into the existing README — nothing else is rewritten.
+function buildSectionsPrompt(ctx, sections) {
+  const guidance = sections.map((s) => SECTION_GUIDANCE[s]).filter(Boolean).join("\n");
+  const system = `You are repo-doctor's README writer. You reply with ONLY a JSON object, no markdown fences, no commentary:
+{"sections": {"<section name>": "the full markdown for that section, starting with its ## heading"}, "description": "About-box one-liner", "topics": ["t1", "t2"], "website": "https://..."}
+
+The repo already has a README (given below). Write ONLY these sections: ${sections.length ? sections.join(", ") : "(none — just the About-box fields)"}. Do not rewrite, repeat, or "improve" anything else.
+(For "description", return just the text with no ## heading. For every other section, start with its ## heading.)
+
+${guidance}
+
+
+Hard rules:
+- No emojis anywhere.
+- Every section must be derived ONLY from the repo context given (file list, manifest, source files, existing README). Never invent commands, URLs, flags, or features.
+- Never invent facts: no made-up badges, commands, URLs, tools, or features.
+- For screenshots, use ONLY the image paths given in the context, as relative paths.
+- "topics": 1 to 5 items, lowercase, hyphens instead of spaces.
+- "website": the live demo or docs URL, copied EXACTLY as it appears in the files or existing README. Never invent. If you cannot see one, use \"\".${buildNotesBlock(ctx)}`;
+
+  const user = `Repo: ${ctx.repo.name} by ${ctx.owner}
+GitHub description now: ${ctx.repo.description || "(empty)"}
+Language: ${ctx.repo.language || "unknown"} | Stars: ${ctx.repo.stargazers_count} | Topics now: ${(ctx.repo.topics || []).join(", ") || "(none)"}
+Files in repo root: ${ctx.files.join(", ") || "(empty repo)"}
+${ctx.manifestName ? `--- ${ctx.manifestName} ---\n${ctx.manifestBody}\n` : "(no dependency manifest found)"}
+${ctx.codeContext ? `--- source files (read these to fill the sections) ---\n${ctx.codeContext}\n` : ""}
+--- existing README (write ONLY the requested sections; do not rewrite this) ---
+${ctx.existing || "(none)"}
+
+Write the JSON now.`;
+  return { system, user };
+}
+
+function parseSectionsJson(text) {
+  let json = String(text || "").trim();
+  const fence = json.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+  if (fence) json = fence[1];
+  const data = JSON.parse(json);
+  const sections = {};
+  for (const [k, v] of Object.entries(data.sections || {})) {
+    if (typeof v === "string" && v.trim()) sections[k] = v.trim();
+  }
+  return {
+    sections,
+    description: typeof data.description === "string" ? data.description.trim() : "",
+    topics: Array.isArray(data.topics) ? data.topics.filter((t) => typeof t === "string") : [],
+    website: typeof data.website === "string" ? data.website.trim() : "",
+  };
+}
+
+// Splice AI-generated sections into an existing README at their canonical
+// positions. Existing content is never rewritten. Returns the merged README.
+function spliceSections(existing, sections) {
+  const all = [...REQUIRED_SECTIONS, ...RECOMMENDED_SECTIONS];
+  const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+  const canonIdx = (displayName) => all.findIndex(([d]) => norm(d) === norm(displayName));
+  const headingIdx = (headingText) => {
+    const n = norm(headingText);
+    return all.findIndex(([, kws]) => kws.some((kw) => n.includes(kw)));
+  };
+
+  const lines = String(existing || "").split("\n");
+  const headings = [];
+  lines.forEach((line, i) => {
+    const m = line.match(/^\s{0,3}##\s+(.+?)\s*$/);
+    if (m) headings.push({ line: i, idx: headingIdx(m[1]) });
+  });
+
+  const insertions = [];
+  for (const [displayName, markdown] of Object.entries(sections || {})) {
+    const idx = canonIdx(displayName);
+    const body = String(markdown || "").trim();
+    if (idx < 0 || !body) continue;
+    let atLine = lines.length;
+    for (const h of headings) {
+      if (h.idx > idx) { atLine = h.line; break; }
+    }
+    insertions.push({ atLine, markdown: body });
+  }
+  insertions.sort((a, b) => b.atLine - a.atLine);
+  for (const ins of insertions) lines.splice(ins.atLine, 0, "", ins.markdown, "");
+
+  let out = lines.join("\n");
+  const descKey = Object.keys(sections || {}).find((k) => norm(k) === "description");
+  const descText = descKey ? String(sections[descKey]).trim() : "";
+  if (descText) {
+    const ls = out.split("\n");
+    const titleIdx = ls.findIndex((l) => /^\s{0,3}#\s+/.test(l));
+    if (titleIdx >= 0) {
+      ls.splice(titleIdx + 1, 0, "", descText);
+      out = ls.join("\n");
+    }
+    delete sections[descKey];
+  }
+  if (!out.includes(ATTRIBUTION_LINE)) {
+    out = out.replace(/\s+$/, "") + "\n\n---\n\n" + ATTRIBUTION_LINE + "\n";
+  }
+  return out;
 }
 
 async function gatherFixContext(owner, name) {
@@ -1325,8 +1445,36 @@ async function startFix(name, kinds, panel) {
     const st0 = panel._fixState || { hints: {}, shots: [] };
     ctx.sectionHints = st0.hints;
     ctx.screenshots = st0.shots.map((s) => "docs/screenshots/" + s.file);
-    const { system, user } = buildFixPrompt(ctx);
-    const data = parseFixJson(await groqChat(system, user));
+    let data;
+    if (ctx.existing) {
+      // Targeted mode: the README exists, so generate ONLY the flagged
+      // sections and splice them in. Nothing else is rewritten.
+      let sections = flaggedSections(name);
+      if (st0.skipShots) sections = sections.filter((s) => s !== "screenshots");
+      const r = state.results.find((x) => x.name === name);
+      if (r && r.missing.includes("readme: no real description under the title") && !sections.includes("description")) {
+        sections.push("description");
+      }
+      if (!sections.length) {
+        // Nothing to add to the README (e.g. screenshots skipped); only
+        // About-box / LICENSE / protection fixes remain.
+        kinds = { ...kinds, readme: false };
+      } else {
+        work.innerHTML = `<p class="muted"><span class="spin"></span>Writing ${sections.length} missing section${sections.length === 1 ? "" : "s"}...</p>`;
+      }
+      const { system, user } = buildSectionsPrompt(ctx, sections);
+      const parsed = parseSectionsJson(await groqChat(system, user));
+      data = {
+        readme: spliceSections(ctx.existing, parsed.sections),
+        description: parsed.description,
+        topics: parsed.topics,
+        website: parsed.website,
+      };
+    } else {
+      const { system, user } = buildFixPrompt(ctx);
+      data = parseFixJson(await groqChat(system, user));
+    }
+    panel._shotsDirty = false;
     renderFixPreview(name, kinds, ctx, data, work);
   } catch (e) {
     work.innerHTML = `<p class="fix-error">${fixErrorText(e)}</p>`;
@@ -1377,18 +1525,25 @@ async function collectSectionState(panel, work) {
   return st;
 }
 
+// Which README sections the audit flagged for this repo (display names).
+function flaggedSections(name) {
+  const r = state.results.find((x) => x.name === name);
+  const secs = [];
+  if (!r) return secs;
+  for (const m of [...r.missing, ...r.warnings]) {
+    const mm = /^readme: (?:missing|no) '([^']+)' section$/.exec(m);
+    if (mm && !secs.includes(mm[1])) secs.push(mm[1]);
+  }
+  return secs;
+}
+
 // Per-section steering for flagged README sections. The AI writes every section
 // from the code by default; notes are collapsed opt-in overrides. Screenshots
 // get a file picker.
 function sectionInputs(name, work, ctx) {
   const panel = work.closest(".fix-panel");
   const st = panel._fixState || (panel._fixState = { hints: {}, shots: [] });
-  const r = state.results.find((x) => x.name === name);
-  const secs = [];
-  for (const m of [...(r ? r.missing : []), ...(r ? r.warnings : [])]) {
-    const mm = /^readme: (?:missing|no) '([^']+)' section$/.exec(m);
-    if (mm && !secs.includes(mm[1])) secs.push(mm[1]);
-  }
+  const secs = flaggedSections(name);
   if (!secs.length) return "";
   const rows = secs.map((s) => {
     if (s === "screenshots") {
@@ -1491,10 +1646,10 @@ function renderFixPreview(name, kinds, ctx, data, work) {
   const fileInput = work.querySelector("[data-sec-files]");
   if (fileInput) fileInput.addEventListener("change", async () => {
     const panel = work.closest(".fix-panel");
-    const st = panel._fixState || (panel._fixState = { hints: {}, shots: [] });
     const stagedEl = work.querySelector("[data-shot-staged]");
     if (stagedEl) stagedEl.innerHTML = `<p class="muted small">Reading…</p>`;
     await collectSectionState(panel, work);
+    panel._shotsDirty = true; // preview was generated without these
     renderShotStaged(work);
   });
 }
@@ -1507,6 +1662,10 @@ async function applyFixes(name, kinds, ctx, data, work) {
   work.querySelectorAll("[data-t]").forEach((t) => { want[t.dataset.t] = t.checked; });
   if (!want.readme && !want.about && !want.license) {
     result.innerHTML = `<p class="fix-error">Pick at least one fix to apply.</p>`;
+    return;
+  }
+  if (st.shots.length && panel._shotsDirty && want.readme && kinds.readme) {
+    result.innerHTML = `<p class="fix-error">You added screenshots after the preview was generated. Hit Regenerate first so the AI includes them in the README.</p>`;
     return;
   }
   result.innerHTML = `<p class="muted"><span class="spin"></span>Applying...</p>`;

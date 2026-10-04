@@ -244,6 +244,35 @@ check("uses gpt-oss-120b", V("GROQ_MODEL") === "openai/gpt-oss-120b");
 
 // 8. connectGroq touches only elements that exist (regression: it once
 //    referenced the removed #groq-promo, so valid keys died silently).
+// 3n. targeted mode: only flagged sections are generated and spliced in
+V(`state.results = [{ name: "MoCode", missing: [], warnings: ["readme: no 'screenshots' section"] }]`);
+check("flaggedSections extracts screenshots", JSON.stringify(V(`flaggedSections("MoCode")`)) === '["screenshots"]');
+V(`state.results = [{ name: "X", missing: ["readme: missing 'tests' section", "readme: no real description under the title"], warnings: [] }]`);
+check("flaggedSections extracts missing", JSON.stringify(V(`flaggedSections("X")`)) === '["tests"]');
+const tctx = { owner: "u", repo: { name: "MoCode", description: "", language: "JavaScript", stargazers_count: 0, topics: [] }, files: ["index.html"], manifestName: "", manifestBody: "", codeContext: "", existing: "# MoCode\n\nA morse translator.\n\n## Features\n\n- x\n", sectionHints: {}, screenshots: ["docs/screenshots/a.png"] };
+const tp = V(`buildSectionsPrompt(${JSON.stringify(tctx).replace(/`/g, "\`")}, ["screenshots"])`);
+check("targeted prompt names the section", tp.system.includes("Write ONLY these sections: screenshots"));
+check("targeted prompt has screenshots guidance", tp.system.includes("## Screenshots"));
+check("targeted prompt omits other guidance", !tp.system.includes("## Motivation"));
+check("targeted prompt includes shot paths", tp.system.includes("docs/screenshots/a.png"));
+check("targeted prompt shows existing README", tp.user.includes("# MoCode"));
+const parsed = V(`parseSectionsJson(JSON.stringify({sections: {screenshots: "## Screenshots\\n![a](docs/screenshots/a.png)"}, description: "About one-liner", topics: ["morse"], website: ""}))`);
+check("parseSectionsJson sections", parsed.sections.screenshots.includes("## Screenshots"));
+check("parseSectionsJson about fields", parsed.description === "About one-liner" && parsed.topics[0] === "morse");
+const merged = V(`spliceSections("# MoCode\\n\\nA morse translator.\\n\\n## Features\\n\\n- x\\n", {"screenshots": "## Screenshots\\n![a](docs/screenshots/a.png)"})`);
+check("splice inserts after existing sections", merged.indexOf("## Features") < merged.indexOf("## Screenshots"));
+check("splice preserves existing content", merged.includes("A morse translator.") && merged.includes("- x"));
+check("splice adds attribution", merged.includes("Created with"));
+const merged2 = V(`spliceSections("# T\\n\\nDesc.\\n\\n## Tests\\n\\nRun npm test.\\n", {"motivation": "## Motivation\\nWhy.", "description": "A fresh one-liner."})`);
+check("splice inserts motivation before tests", merged2.indexOf("## Motivation") < merged2.indexOf("## Tests"));
+check("splice description has no heading", !merged2.includes("## description") && merged2.includes("A fresh one-liner."));
+check("splice description sits under title", merged2.indexOf("# T") < merged2.indexOf("A fresh one-liner.") && merged2.indexOf("A fresh one-liner.") < merged2.indexOf("## Motivation"));
+
+// 3o. targeted prompt with no sections still asks for About-box fields
+const tp0 = V(`buildSectionsPrompt(${JSON.stringify(tctx).replace(/`/g, "\\`")}, [])`);
+check("empty sections prompt mentions none", tp0.system.includes("Write ONLY these sections: (none"));
+check("empty sections prompt wants about fields", tp0.system.includes("About-box one-liner"));
+
 // 3m. screenshot uploads give immediate visual feedback
 const __stagedEl = { innerHTML: "", querySelectorAll() { return []; } };
 sandbox.__w = {
