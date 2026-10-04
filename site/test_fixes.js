@@ -133,6 +133,17 @@ const prompt5 = V(`buildFixPrompt({ owner: "o", repo: { name: "r", description: 
 check("prompt includes source files", prompt5.user.includes("--- source files") && prompt5.user.includes("--- a.py ---"));
 check("prompt tells AI to read code", prompt5.system.includes("Read the source files"));
 
+// 3g. evidence detection: the AI skips only what truly has no evidence
+const ev1 = V(`repoEvidence([".github/workflows/ci.yml", "src/a.py"], ["src/a.py"], "name")`);
+check("detects CI", ev1.ci === true && ev1.lint === false);
+const ev2 = V(`repoEvidence(["pyproject.toml"], ["tests/test_a.py"], "[tool.ruff]")`);
+check("detects lint + tests", ev2.lint === true && ev2.tests === true && ev2.ci === false);
+const ev3 = V(`repoEvidence(["README.md"], ["src/a.py"], "name")`);
+check("no evidence anywhere", ev3.ci === false && ev3.lint === false && ev3.tests === false);
+check("build-status hint", V(`evidenceHint("build status", { ci: false })`).includes("No CI workflow"));
+check("no hint when evidence exists", V(`evidenceHint("build status", { ci: true })`) === "");
+check("tests rule uses test files", prompt5.system.includes("test files in the source"));
+
 // 3e. screenshot filename sanitizing
 check("shot name sanitized", V(`sanitizeShotName("My Photo.PNG", new Set())`) === "my-photo.png");
 check("shot name deduped", V(`sanitizeShotName("a.png", new Set(["a.png"]))`) === "a-2.png");

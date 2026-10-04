@@ -844,9 +844,9 @@ README structure — use these sections in this order, skipping any you cannot f
 ## Build status (only with real CI evidence — a badge or workflow in the files/README given — or user notes; never invent a badge)
 ## Code style (infer from lint/format tools in the manifest like eslint, prettier, ruff, black; skip if none visible and no notes)
 ## Screenshots (only from user-uploaded images or user notes)
-## Code example (a short usage snippet grounded in the existing README; skip if none)
-## API reference (document the public surface from the existing README and file names; skip if nothing to document)
-## Tests (how to run them, from the manifest scripts; skip if no test setup is visible)
+## Code example (a short usage snippet grounded in the existing README or the source files; skip if none)
+## API reference (document the public surface from the existing README, file names, and source files; skip if nothing to document)
+## Tests (how to run them — from manifest scripts or test files in the source; skip only if the repo has no tests at all)
 
 Hard rules:
 - No emojis anywhere.
@@ -884,6 +884,26 @@ function isCodeFile(path) {
   const ext = parts[parts.length - 1].split(".").pop().toLowerCase();
   return CODE_EXTS.has(ext);
 }
+// What the AI can truthfully write, from the repo tree + manifest alone.
+function repoEvidence(paths, codeFiles, manifestBody) {
+  const mb = (manifestBody || "").toLowerCase();
+  const lintHints = ["eslint", "prettier", "ruff", "black", "flake8", "biome", "stylelint"];
+  return {
+    ci: paths.some((p) => p.startsWith(".github/workflows/")),
+    lint: lintHints.some((h) => mb.includes(h)) ||
+      paths.some((p) => /(^|\/)\.eslintrc|\.prettierrc|ruff\.toml|(^|\/)\.flake8|(^|\/)biome\.json/i.test(p)),
+    tests: codeFiles.some((f) => {
+      const b = f.split("/").pop().toLowerCase();
+      return /^(test|spec)/.test(b) || b.includes(".test.") || b.includes(".spec.");
+    }) || /pytest|jest|vitest|mocha/i.test(mb),
+  };
+}
+function evidenceHint(section, ev) {
+  if (section === "build status" && !ev.ci) return "No CI workflow in this repo — the AI will skip this unless your note says otherwise.";
+  if (section === "code style" && !ev.lint) return "No lint/format config found — the AI will skip this unless your note says otherwise.";
+  if (section === "tests" && !ev.tests) return "No tests found — the AI will skip this unless your note says otherwise.";
+  return "";
+}
 function codeScore(p) {
   const base = p.split("/").pop().toLowerCase();
   let s = 0;
@@ -917,12 +937,15 @@ async function gatherFixContext(owner, name) {
   // Let the AI read the code, not just the file list: pull the most relevant
   // source files (plus CI workflows for build-status evidence).
   let codeContext = "";
+  let evidence = { ci: false, lint: false, tests: false };
+  let codeFilesRead = 0;
   try {
     const branch = repo.default_branch || "main";
     const tree = await gh(`/repos/${enc(owner)}/${enc(name)}/git/trees/${enc(branch)}?recursive=1`);
     const blobs = (tree.tree || [])
       .filter((t) => t.type === "blob" && isCodeFile(t.path) && !(t.size > 60000));
     blobs.sort((a, b) => codeScore(b.path) - codeScore(a.path));
+    evidence = repoEvidence((tree.tree || []).map((t) => t.path), blobs.map((b) => b.path), manifestBody);
     let budget = 12000;
     const parts = [];
     for (const f of blobs.slice(0, 8)) {
@@ -936,8 +959,9 @@ async function gatherFixContext(owner, name) {
       } catch (e) { /* skip unreadable files */ }
     }
     codeContext = parts.join("\n\n");
+    codeFilesRead = parts.length;
   } catch (e) { /* code context is a nice-to-have */ }
-  return { owner, repo, files, manifestName, manifestBody, existing, codeContext };
+  return { owner, repo, files, manifestName, manifestBody, existing, codeContext, evidence, codeFilesRead };
 }
 
 function parseFixJson(raw) {
@@ -1193,9 +1217,10 @@ async function collectSectionState(panel, work) {
   return st;
 }
 
-// Optional per-section inputs for every flagged README section. Screenshots
-// get a file picker; everything else gets a notes field for the AI.
-function sectionInputs(name, work) {
+// Per-section steering for flagged README sections. The AI writes every section
+// from the code by default; notes are collapsed opt-in overrides. Screenshots
+// get a file picker.
+function sectionInputs(name, work, ctx) {
   const panel = work.closest(".fix-panel");
   const st = panel._fixState || (panel._fixState = { hints: {}, shots: [] });
   const r = state.results.find((x) => x.name === name);
@@ -1217,11 +1242,20 @@ function sectionInputs(name, work) {
         + `<label class="btn btn-ghost btn-mini shot-upload">Upload screenshots<input type="file" data-sec-files accept="image/*" multiple hidden></label>`
         + `<button type="button" class="btn btn-ghost btn-mini" data-skip-shots>Skip</button></div>` + staged + `</div>`;
     }
-    return `<label class="fix-sec"><span>` + esc(s) + `</span><input data-sec="` + esc(s) + `" value="` + esc(st.hints[s] || "") + `" placeholder="notes for the AI"></label>`;
+    const hint = evidenceHint(s, (ctx && ctx.evidence) || {});
+    const hasNote = st.hints[s] && String(st.hints[s]).trim();
+    return `<div class="fix-sec"><div class="fix-sec-head"><span>` + esc(s) + `</span>`
+      + `<button type="button" class="link-btn" data-note-toggle>` + (hasNote ? "edit note" : "add note") + `</button></div>`
+      + (hint ? `<p class="muted small fix-evidence">` + hint + `</p>` : "")
+      + `<input data-sec="` + esc(s) + `" value="` + esc(st.hints[s] || "") + `" placeholder="notes for the AI"` + (hasNote ? "" : " hidden") + `></div>`;
   }).join("");
+  const read = ctx && ctx.codeFilesRead;
+  const readLine = read
+    ? ` The AI read ` + read + ` source file` + (read > 1 ? "s" : "") + ` to write them.`
+    : ` The AI could not read the source files, so it is working from the file list only.`;
   return `<div class="fix-sections">
     <h4 class="fix-title">README sections</h4>
-    <p class="muted small fix-sec-note">Flagged sections. Add a note for any of them, or pick screenshots, then hit Regenerate: the AI weaves it in. Screenshots ride out with the README PR.</p>
+    <p class="muted small fix-sec-note">The AI writes these from your code — nothing to fill in.` + readLine + ` Add a note only to steer a section, or pick screenshots, then hit Regenerate.</p>
     ` + rows + `
   </div>`;
 }
@@ -1241,7 +1275,7 @@ function renderFixPreview(name, kinds, ctx, data, work) {
       <label>Website<input data-f="homepage" value="${esc(data.website || ctx.repo.homepage || "")}" placeholder="https://..."></label>
       ${(!data.website && !ctx.repo.homepage) ? `<p class="fix-note">The AI couldn't find a live URL in the repo files — paste your demo or docs link here if you have one.</p>` : ""}
     </div>` : ""}
-    ${kinds.readme ? sectionInputs(name, work) : ""}
+    ${kinds.readme ? sectionInputs(name, work, ctx) : ""}
     <div class="fix-toggles">${toggles}</div>
     <div class="fix-actions">
       <button class="btn btn-primary" data-apply>Apply fixes</button>
@@ -1249,6 +1283,14 @@ function renderFixPreview(name, kinds, ctx, data, work) {
     </div>
     <div class="fix-result"></div>`;
   icons();
+  work.querySelectorAll("[data-note-toggle]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const inp = b.closest(".fix-sec").querySelector("[data-sec]");
+      inp.hidden = !inp.hidden;
+      b.textContent = inp.hidden ? (inp.value.trim() ? "edit note" : "add note") : "hide";
+      if (!inp.hidden) inp.focus();
+    });
+  });
   work.querySelector("[data-regen]").addEventListener("click", async () => {
     const panel = work.closest(".fix-panel");
     await collectSectionState(panel, work);
