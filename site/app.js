@@ -833,7 +833,7 @@ function buildFixPrompt(ctx) {
   const system = `You are repo-doctor's README writer. You reply with ONLY a JSON object, no markdown fences, no commentary:
 {"readme": "the full README.md", "description": "one line", "topics": ["t1", "t2"], "website": "https://..."}
 
-README structure — use these sections in this order, skipping any you cannot fill truthfully:
+README structure — use these sections in this order. Write every section below; the ONLY section you may skip is Screenshots, and only when no images or notes were provided:
 # Title
 <one or two honest lines saying what it is>
 ## Motivation
@@ -841,18 +841,18 @@ README structure — use these sections in this order, skipping any you cannot f
 ## Features
 ## Installation
 ## Usage
-## Build status (only with real CI evidence — a badge or workflow in the files/README given — or user notes; never invent a badge)
-## Code style (infer from lint/format tools in the manifest like eslint, prettier, ruff, black; skip if none visible and no notes)
+## Build status (show the real CI badge or workflow when one exists in the files given — never invent a badge; when there is no CI, write how to build and verify the project from the repo files in one short paragraph)
+## Code style (name lint/format tools only if they are configured in the manifest; otherwise describe the style observed in the source files — indentation, naming, quotes — without claiming tools that are not there)
 ## Screenshots (only from user-uploaded images or user notes)
-## Code example (a short usage snippet grounded in the existing README or the source files; skip if none)
-## API reference (document the public surface from the existing README, file names, and source files; skip if nothing to document)
-## Tests (how to run them — from manifest scripts or test files in the source; skip only if the repo has no tests at all)
+## Code example (a short usage snippet grounded in the existing README or the source files; if there is genuinely nothing to show, say so in one line)
+## API reference (document the public surface from the existing README, file names, and source files; if there is genuinely nothing to document, say so in one line)
+## Tests (how to run them — from manifest scripts or test files in the source; if the repo has no tests at all, say so in one honest line)
 
 Hard rules:
 - No emojis anywhere.
 - Installation and Usage must be copy-pasteable steps derived ONLY from the repo context given (file list, manifest, source files, existing README). Never invent commands, URLs, flags, or features.
 - Read the source files. Derive tech stack, features, installation steps, API reference, tests, and code style from the code itself — that is what the source files are for.
-- If a fact is unknown, omit it. Do not hallucinate.
+- Never invent facts: no made-up badges, commands, URLs, tools, or features. When a section has thin material, write one honest line about what is actually there instead of skipping the section. Screenshots is the only exception: skip it entirely when no images or notes were provided.
 - Do NOT write Contribute, Credits, or License sections — GitHub renders those natively.
 - End the README with a blank line, then ---, then a blank line, then exactly:
 ${ATTRIBUTION_LINE}
@@ -883,26 +883,6 @@ function isCodeFile(path) {
   if (parts[0] === ".github" && parts[1] === "workflows") return /\.ya?ml$/i.test(parts[parts.length - 1]); // CI evidence for build status
   const ext = parts[parts.length - 1].split(".").pop().toLowerCase();
   return CODE_EXTS.has(ext);
-}
-// What the AI can truthfully write, from the repo tree + manifest alone.
-function repoEvidence(paths, codeFiles, manifestBody) {
-  const mb = (manifestBody || "").toLowerCase();
-  const lintHints = ["eslint", "prettier", "ruff", "black", "flake8", "biome", "stylelint"];
-  return {
-    ci: paths.some((p) => p.startsWith(".github/workflows/")),
-    lint: lintHints.some((h) => mb.includes(h)) ||
-      paths.some((p) => /(^|\/)\.eslintrc|\.prettierrc|ruff\.toml|(^|\/)\.flake8|(^|\/)biome\.json/i.test(p)),
-    tests: codeFiles.some((f) => {
-      const b = f.split("/").pop().toLowerCase();
-      return /^(test|spec)/.test(b) || b.includes(".test.") || b.includes(".spec.");
-    }) || /pytest|jest|vitest|mocha/i.test(mb),
-  };
-}
-function evidenceHint(section, ev) {
-  if (section === "build status" && !ev.ci) return "No CI workflow in this repo — the AI will skip this unless your note says otherwise.";
-  if (section === "code style" && !ev.lint) return "No lint/format config found — the AI will skip this unless your note says otherwise.";
-  if (section === "tests" && !ev.tests) return "No tests found — the AI will skip this unless your note says otherwise.";
-  return "";
 }
 function codeScore(p) {
   const base = p.split("/").pop().toLowerCase();
@@ -937,7 +917,6 @@ async function gatherFixContext(owner, name) {
   // Let the AI read the code, not just the file list: pull the most relevant
   // source files (plus CI workflows for build-status evidence).
   let codeContext = "";
-  let evidence = { ci: false, lint: false, tests: false };
   let codeFilesRead = 0;
   try {
     const branch = repo.default_branch || "main";
@@ -945,7 +924,6 @@ async function gatherFixContext(owner, name) {
     const blobs = (tree.tree || [])
       .filter((t) => t.type === "blob" && isCodeFile(t.path) && !(t.size > 60000));
     blobs.sort((a, b) => codeScore(b.path) - codeScore(a.path));
-    evidence = repoEvidence((tree.tree || []).map((t) => t.path), blobs.map((b) => b.path), manifestBody);
     let budget = 12000;
     const parts = [];
     for (const f of blobs.slice(0, 8)) {
@@ -961,7 +939,7 @@ async function gatherFixContext(owner, name) {
     codeContext = parts.join("\n\n");
     codeFilesRead = parts.length;
   } catch (e) { /* code context is a nice-to-have */ }
-  return { owner, repo, files, manifestName, manifestBody, existing, codeContext, evidence, codeFilesRead };
+  return { owner, repo, files, manifestName, manifestBody, existing, codeContext, codeFilesRead };
 }
 
 function parseFixJson(raw) {
@@ -1242,12 +1220,10 @@ function sectionInputs(name, work, ctx) {
         + `<label class="btn btn-ghost btn-mini shot-upload">Upload screenshots<input type="file" data-sec-files accept="image/*" multiple hidden></label>`
         + `<button type="button" class="btn btn-ghost btn-mini" data-skip-shots>Skip</button></div>` + staged + `</div>`;
     }
-    const hint = evidenceHint(s, (ctx && ctx.evidence) || {});
     const hasNote = st.hints[s] && String(st.hints[s]).trim();
     return `<div class="fix-sec"><div class="fix-sec-head"><span>` + esc(s) + `</span>`
       + `<button type="button" class="link-btn" data-note-toggle>` + (hasNote ? "edit note" : "add note") + `</button></div>`
-      + (hint ? `<p class="muted small fix-evidence">` + hint + `</p>` : "")
-      + `<input data-sec="` + esc(s) + `" value="` + esc(st.hints[s] || "") + `" placeholder="notes for the AI"` + (hasNote ? "" : " hidden") + `></div>`;
+      + `<input data-sec="` + esc(s) + `" value="` + esc(st.hints[s] || "") + `" placeholder="notes for the AI (optional)"` + (hasNote ? "" : " hidden") + `></div>`;
   }).join("");
   const read = ctx && ctx.codeFilesRead;
   const readLine = read
