@@ -140,6 +140,23 @@ check("auditAgo hours", V(`auditAgo(Date.now() - 3*3600000)`) === "3 hr ago");
 check("auditAgo empty", V(`auditAgo(0)`) === "");
 check("repo timeAgo untouched", V(`timeAgo(new Date(Date.now() - 2*86400000).toISOString())`) === "2d ago");
 
+// 3h. picker shows last-audit scores, worst and oldest first
+V(`state.results = [
+  { name: "bad", missing: ["a","b"], warnings: [] },
+  { name: "ok", missing: [], warnings: [] },
+]`);
+check("lastScore bad", V(`lastScore("bad")`) === 76);
+check("lastScore ok", V(`lastScore("ok")`) === 100);
+check("lastScore unknown", V(`lastScore("nope")`) === null);
+const sorted = V(`sortPickerRepos([
+  { name: "ok", pushed_at: "2026-10-01T00:00:00Z" },
+  { name: "new", pushed_at: "2026-10-04T00:00:00Z" },
+  { name: "bad", pushed_at: "2026-10-03T00:00:00Z" },
+  { name: "old", pushed_at: "2025-01-01T00:00:00Z" },
+]).map((r) => r.name)`);
+check("worst first, unscored oldest-first last", JSON.stringify(sorted) === JSON.stringify(["bad","ok","old","new"]));
+V(`state.results = []`);
+
 // 3g. the AI writes everything except screenshots — no notes needed
 check("only screenshots may be skipped", prompt5.system.includes("the ONLY section you may skip is Screenshots"));
 check("build status without CI", prompt5.system.includes("when there is no CI, write how to build and verify"));

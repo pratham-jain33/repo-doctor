@@ -501,9 +501,28 @@ function visibleRepos() {
   });
 }
 
+// Score from the last audit, if this repo was in it.
+function lastScore(name) {
+  const r = state.results.find((x) => x.name === name);
+  return r ? scoreFor(r.missing.length, r.warnings.length) : null;
+}
+
+// Worst first: lowest last-audit score, then oldest push. Repos never
+// audited sink below scored ones, oldest first.
+function sortPickerRepos(repos) {
+  return [...repos].sort((a, b) => {
+    const sa = lastScore(a.name), sb = lastScore(b.name);
+    if (sa !== null && sb !== null) {
+      if (sa !== sb) return sa - sb;
+    } else if (sa !== null) return -1;
+    else if (sb !== null) return 1;
+    return new Date(a.pushed_at) - new Date(b.pushed_at);
+  });
+}
+
 function renderPicker() {
   const list = document.getElementById("repo-list");
-  const repos = visibleRepos();
+  const repos = sortPickerRepos(visibleRepos());
   const cap = effectiveCap();
   document.getElementById("picker-empty").hidden = repos.length > 0;
   const capped = state.selected.size >= cap;
@@ -521,6 +540,7 @@ function renderPicker() {
         ${r.description ? `<div class="repo-desc">${esc(r.description)}</div>` : ""}
       </div>
       <div class="repo-meta">
+        ${(() => { const sc = lastScore(r.name); return sc === null ? "" : `<span class="pill ${sc >= 80 ? "cleanp" : sc >= 50 ? "warnp" : "miss"}">${sc}</span>`; })()}
         <span><i data-lucide="star"></i>${r.stargazers_count}</span>
         <span><i data-lucide="clock"></i>${timeAgo(r.pushed_at)}</span>
       </div>

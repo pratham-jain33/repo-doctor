@@ -301,7 +301,8 @@ footer { border-top: 1px solid var(--line); padding: 1.8rem 0; }
   .connections-grid { grid-template-columns: 1fr; }
   .input-row { flex-direction: column; }
   .input-icon { top: 1.35rem; }
-  .repo-meta { display: none; }
+  .repo-meta { display: flex; }
+  .repo-meta span:not(.pill) { display: none; }
   .results-head { flex-direction: column-reverse; align-items: flex-start; }
   /* phone layout */
   main.wrap { padding: 1.8rem 0 2.5rem; }
