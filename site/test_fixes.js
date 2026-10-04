@@ -194,6 +194,7 @@ check("buildBadges three badges", badges.split("![").length === 4 && badges.incl
 check("buildBadges skips unknown license", V(`buildBadges({ license: { spdx_id: "NOASSERTION" } }, "", "")`) === "");
 const prompt6 = V(`buildFixPrompt({ owner: "o", repo: { name: "r", description: "", language: "", stargazers_count: 0, topics: [] }, files: [], manifestName: "", manifestBody: "", existing: null, codeContext: "", badges: "![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)" })`);
 check("prompt places badges under title", prompt6.user.includes("badges (place on their own line directly under the title;"));
+check("badges separated from description by blank line", prompt6.system.includes("[badges from the context \u2014 badges only on this line, nothing else]"));
 
 
 // 3g. the AI writes everything except screenshots — no notes needed

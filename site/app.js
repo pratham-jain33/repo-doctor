@@ -975,8 +975,9 @@ function buildFixPrompt(ctx) {
 
 README structure — use these sections in this order. Write every section below; the ONLY section you may skip is Screenshots, and only when no images or notes were provided:
 # Title
-<badges: put the badge line from the context on its own line directly under the title>
-<one or two honest lines saying what it is>
+[badges from the context — badges only on this line, nothing else]
+
+[one or two honest lines saying what it is, starting on this line]
 ## Motivation
 ## Tech stack
 ## Features
