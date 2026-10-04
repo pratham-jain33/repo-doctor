@@ -654,10 +654,21 @@ async function startAudit(resume) {
   }
 
   label.textContent = `Done. ${state.results.length} repos audited.`;
+  state.auditedAt = Date.now();
   setTimeout(renderResults, 600);
 }
 
 /* ---------------- screen 4: results ---------------- */
+
+function timeAgo(ts) {
+  if (!ts) return "";
+  const m = Math.floor((Date.now() - ts) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return m + " min ago";
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + " hr ago";
+  return Math.floor(h / 24) + " days ago";
+}
 
 function scoreClass(s) {
   return s >= 80 ? "good" : s >= 50 ? "mid" : "bad";
@@ -675,7 +686,8 @@ function renderResults() {
     ? Math.round(results.reduce((n, r) => n + scoreFor(r.missing.length, r.warnings.length), 0) / results.length)
     : 0;
   document.getElementById("results-summary").textContent =
-    `${results.length} repos audited: ${totalMissing} missing items, ${totalWarn} warnings.`;
+    `${results.length} repos audited: ${totalMissing} missing items, ${totalWarn} warnings.` +
+    (state.auditedAt ? ` Last audited ${timeAgo(state.auditedAt)}.` : "");
 
   const arc = document.getElementById("score-arc");
   const C = 326.7;
@@ -1328,6 +1340,9 @@ async function applyFixes(name, kinds, ctx, data, work) {
       prUrl = await openFixPR(owner, name, files, title);
       lines.push("PR opened" + (st.shots.length && want.readme ? " (with " + st.shots.length + " screenshot" + (st.shots.length > 1 ? "s" : "") + ")" : "") + ". Nothing is applied until you merge it.");
     }
+    const reauditHint = prUrl
+      ? "After you merge it on GitHub, hit Audit again at the top of the results — this page still shows the pre-fix audit until then."
+      : "Hit Audit again at the top of the results to see the new score.";
     result.innerHTML = `
       <div class="pr-card">
         <i data-lucide="check"></i>
@@ -1335,6 +1350,7 @@ async function applyFixes(name, kinds, ctx, data, work) {
           <h4>${prUrl ? "PR opened" : "Done"}</h4>
           <p>${lines.join(" ")}</p>
           ${prUrl ? `<a class="btn btn-primary btn-mini" href="${esc(prUrl)}" target="_blank" rel="noopener">Review &amp; merge on GitHub <i data-lucide="external-link"></i></a>` : ""}
+          <p class="muted small" style="margin-top:0.5rem">${reauditHint}</p>
         </div>
       </div>`;
     icons();

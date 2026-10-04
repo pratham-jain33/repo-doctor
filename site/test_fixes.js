@@ -133,6 +133,12 @@ const prompt5 = V(`buildFixPrompt({ owner: "o", repo: { name: "r", description: 
 check("prompt includes source files", prompt5.user.includes("--- source files") && prompt5.user.includes("--- a.py ---"));
 check("prompt tells AI to read code", prompt5.system.includes("Read the source files"));
 
+// 3f. stale-audit UX: results show their age, success card closes the loop
+check("timeAgo just now", V(`timeAgo(Date.now())`) === "just now");
+check("timeAgo minutes", V(`timeAgo(Date.now() - 5*60000)`) === "5 min ago");
+check("timeAgo hours", V(`timeAgo(Date.now() - 3*3600000)`) === "3 hr ago");
+check("timeAgo empty", V(`timeAgo(0)`) === "");
+
 // 3g. the AI writes everything except screenshots — no notes needed
 check("only screenshots may be skipped", prompt5.system.includes("the ONLY section you may skip is Screenshots"));
 check("build status without CI", prompt5.system.includes("when there is no CI, write how to build and verify"));
