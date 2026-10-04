@@ -134,10 +134,11 @@ check("prompt includes source files", prompt5.user.includes("--- source files") 
 check("prompt tells AI to read code", prompt5.system.includes("Read the source files"));
 
 // 3f. stale-audit UX: results show their age, success card closes the loop
-check("timeAgo just now", V(`timeAgo(Date.now())`) === "just now");
-check("timeAgo minutes", V(`timeAgo(Date.now() - 5*60000)`) === "5 min ago");
-check("timeAgo hours", V(`timeAgo(Date.now() - 3*3600000)`) === "3 hr ago");
-check("timeAgo empty", V(`timeAgo(0)`) === "");
+check("auditAgo just now", V(`auditAgo(Date.now())`) === "just now");
+check("auditAgo minutes", V(`auditAgo(Date.now() - 5*60000)`) === "5 min ago");
+check("auditAgo hours", V(`auditAgo(Date.now() - 3*3600000)`) === "3 hr ago");
+check("auditAgo empty", V(`auditAgo(0)`) === "");
+check("repo timeAgo untouched", V(`timeAgo(new Date(Date.now() - 2*86400000).toISOString())`) === "2d ago");
 
 // 3g. the AI writes everything except screenshots — no notes needed
 check("only screenshots may be skipped", prompt5.system.includes("the ONLY section you may skip is Screenshots"));

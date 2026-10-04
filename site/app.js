@@ -660,7 +660,7 @@ async function startAudit(resume) {
 
 /* ---------------- screen 4: results ---------------- */
 
-function timeAgo(ts) {
+function auditAgo(ts) {
   if (!ts) return "";
   const m = Math.floor((Date.now() - ts) / 60000);
   if (m < 1) return "just now";
@@ -687,7 +687,7 @@ function renderResults() {
     : 0;
   document.getElementById("results-summary").textContent =
     `${results.length} repos audited: ${totalMissing} missing items, ${totalWarn} warnings.` +
-    (state.auditedAt ? ` Last audited ${timeAgo(state.auditedAt)}.` : "");
+    (state.auditedAt ? ` Last audited ${auditAgo(state.auditedAt)}.` : "");
 
   const arc = document.getElementById("score-arc");
   const C = 326.7;
