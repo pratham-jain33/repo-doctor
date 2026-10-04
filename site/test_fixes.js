@@ -124,6 +124,15 @@ check("prompt instructs screenshots section", prompt3.system.includes("## Screen
 const prompt4 = V(`buildFixPrompt({ owner: "o", repo: { name: "r", description: "", language: "", stargazers_count: 0, topics: [] }, files: [], manifestName: "", manifestBody: "", existing: null })`);
 check("prompt omits notes block when empty", !prompt4.system.includes("User notes for flagged"));
 
+// 3f. the AI reads code, not just the file list
+check("picks up source files", V(`isCodeFile("src/main.py")`) === true && V(`isCodeFile("app.ts")`) === true);
+check("skips vendored dirs", V(`isCodeFile("node_modules/foo/index.js")`) === false);
+check("picks up CI workflows", V(`isCodeFile(".github/workflows/ci.yml")`) === true);
+check("main scores above deep files", V(`codeScore("main.py")`) > V(`codeScore("src/deep/util.py")`));
+const prompt5 = V(`buildFixPrompt({ owner: "o", repo: { name: "r", description: "", language: "", stargazers_count: 0, topics: [] }, files: [], manifestName: "", manifestBody: "", existing: null, codeContext: "--- a.py --- print(1)" })`);
+check("prompt includes source files", prompt5.user.includes("--- source files") && prompt5.user.includes("--- a.py ---"));
+check("prompt tells AI to read code", prompt5.system.includes("Read the source files"));
+
 // 3e. screenshot filename sanitizing
 check("shot name sanitized", V(`sanitizeShotName("My Photo.PNG", new Set())`) === "my-photo.png");
 check("shot name deduped", V(`sanitizeShotName("a.png", new Set(["a.png"]))`) === "a-2.png");

@@ -850,7 +850,8 @@ README structure — use these sections in this order, skipping any you cannot f
 
 Hard rules:
 - No emojis anywhere.
-- Installation and Usage must be copy-pasteable steps derived ONLY from the files and manifest given. Never invent commands, URLs, flags, or features.
+- Installation and Usage must be copy-pasteable steps derived ONLY from the repo context given (file list, manifest, source files, existing README). Never invent commands, URLs, flags, or features.
+- Read the source files. Derive tech stack, features, installation steps, API reference, tests, and code style from the code itself — that is what the source files are for.
 - If a fact is unknown, omit it. Do not hallucinate.
 - Do NOT write Contribute, Credits, or License sections — GitHub renders those natively.
 - End the README with a blank line, then ---, then a blank line, then exactly:
@@ -866,6 +867,7 @@ GitHub description now: ${ctx.repo.description || "(empty)"}
 Language: ${ctx.repo.language || "unknown"} | Stars: ${ctx.repo.stargazers_count} | Topics now: ${(ctx.repo.topics || []).join(", ") || "(none)"}
 Files in repo root: ${ctx.files.join(", ") || "(empty repo)"}
 ${ctx.manifestName ? `--- ${ctx.manifestName} ---\n${ctx.manifestBody}\n` : "(no dependency manifest found)"}
+${ctx.codeContext ? `--- source files (read these to fill the sections) ---\n${ctx.codeContext}\n` : ""}
 --- existing README (may be missing or incomplete) ---
 ${ctx.existing || "(none)"}
 
@@ -873,7 +875,29 @@ Write the JSON now.`;
   return { system, user };
 }
 
+const CODE_EXTS = new Set("py,js,jsx,ts,tsx,mjs,cjs,go,rs,java,rb,php,swift,kt,c,h,cpp,hpp,cs,vue,svelte".split(","));
+const SKIP_DIRS = ["node_modules", "dist", "build", ".git", "__pycache__", ".venv", "venv", "target", "vendor", "coverage", ".next", ".nuxt"];
+function isCodeFile(path) {
+  const parts = path.split("/");
+  if (parts.some((p) => SKIP_DIRS.includes(p))) return false;
+  if (parts[0] === ".github" && parts[1] === "workflows") return /\.ya?ml$/i.test(parts[parts.length - 1]); // CI evidence for build status
+  const ext = parts[parts.length - 1].split(".").pop().toLowerCase();
+  return CODE_EXTS.has(ext);
+}
+function codeScore(p) {
+  const base = p.split("/").pop().toLowerCase();
+  let s = 0;
+  if (/^(main|index|app|server|cli|__main__|mod)\./.test(base)) s += 100;
+  if (p.startsWith("src/") || p.startsWith("lib/")) s += 40;
+  if (p.includes(".github/workflows")) s += 20;
+  if (base === "__init__.py") s -= 60;
+  if (/^(test|spec)/.test(base) || base.includes(".test.") || base.includes(".spec.")) s -= 30;
+  s -= p.split("/").length * 4;
+  return s;
+}
+
 async function gatherFixContext(owner, name) {
+  const enc = encodeURIComponent;
   const repo = state.repos.find((r) => r.name === name);
   const listing = await gh(`/repos/${owner}/${name}/contents/`);
   const files = listing.filter((f) => f.type === "file").map((f) => f.name);
@@ -890,7 +914,30 @@ async function gatherFixContext(owner, name) {
     }
   }
   const existing = await fetchReadme(owner, name);
-  return { owner, repo, files, manifestName, manifestBody, existing };
+  // Let the AI read the code, not just the file list: pull the most relevant
+  // source files (plus CI workflows for build-status evidence).
+  let codeContext = "";
+  try {
+    const branch = repo.default_branch || "main";
+    const tree = await gh(`/repos/${enc(owner)}/${enc(name)}/git/trees/${enc(branch)}?recursive=1`);
+    const blobs = (tree.tree || [])
+      .filter((t) => t.type === "blob" && isCodeFile(t.path) && !(t.size > 60000));
+    blobs.sort((a, b) => codeScore(b.path) - codeScore(a.path));
+    let budget = 12000;
+    const parts = [];
+    for (const f of blobs.slice(0, 8)) {
+      if (budget <= 0) break;
+      try {
+        const text = await gh(`/repos/${enc(owner)}/${enc(name)}/contents/${f.path.split("/").map(enc).join("/")}?ref=${enc(branch)}`, true);
+        if (!text || !text.trim()) continue;
+        const slice = text.slice(0, Math.min(3000, budget));
+        parts.push(`--- ${f.path} ---\n${slice}`);
+        budget -= slice.length;
+      } catch (e) { /* skip unreadable files */ }
+    }
+    codeContext = parts.join("\n\n");
+  } catch (e) { /* code context is a nice-to-have */ }
+  return { owner, repo, files, manifestName, manifestBody, existing, codeContext };
 }
 
 function parseFixJson(raw) {

@@ -287,6 +287,9 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .fix-sec input:focus { border-color: var(--amber-dim); }
 .fix-sec input[type="file"] { padding: 0.4rem 0.5rem; font-size: 0.8rem; }
 .fix-sec input[type="file"]::file-selector-button { background: var(--surface); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 0.35rem 0.7rem; margin-right: 0.6rem; font-size: 0.8rem; cursor: pointer; }
+.shot-choice { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.shot-upload { cursor: pointer; margin: 0; }
+.link-btn { background: none; border: none; color: var(--amber); font-size: 0.82rem; cursor: pointer; font-family: "Inter", sans-serif; padding: 0; text-decoration: underline; }
 
 /* ---------- footer ---------- */
 footer { border-top: 1px solid var(--line); padding: 1.8rem 0; }
@@ -315,7 +318,4 @@ footer { border-top: 1px solid var(--line); padding: 1.8rem 0; }
   .md-preview { padding: 0.85rem 0.9rem; }
   .error-card { padding: 1.1rem; }
   .shot-choice .btn { flex: 1; justify-content: center; }
-  .shot-choice { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
-  .shot-upload { cursor: pointer; margin: 0; }
-  .link-btn { background: none; border: none; color: var(--amber); font-size: 0.82rem; cursor: pointer; font-family: "Inter", sans-serif; padding: 0; text-decoration: underline; }
 }
