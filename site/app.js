@@ -13,7 +13,8 @@ const state = {
   groqKey: "",    // BYOK for AI fixes; never leaves the browser except to api.groq.com
   fetchedRepos: [], // everything the API returned, forks included
   repos: [],        // working set after the fork filter
-  excludeForks: false, // default off; never persisted, always read from the checkbox
+  excludeForks: false, // default off; never persisted, always read from the home checkboxes
+  excludePrivate: false,
   selected: new Set(),
   results: [],      // audit results
   auditedAt: 0,
@@ -433,10 +434,11 @@ async function loadRepos() {
     return;
   }
   document.getElementById("picker-retry").hidden = false;
-  // Always read the live checkbox: the preference is never saved anywhere,
-  // so the working set must match what the user currently sees.
+  // Read the home-screen options: forks and private repos never enter the
+  // working set, so they are never listed, scored, or audited.
   state.excludeForks = document.getElementById("exclude-forks").checked;
-  applyForkFilter();
+  state.excludePrivate = document.getElementById("exclude-private").checked;
+  applyRepoFilters();
   if (!state.repos.length) {
     list.innerHTML = "";
     document.getElementById("picker-error-title").textContent = "Nothing to audit";
@@ -483,20 +485,13 @@ function restoreResults() {
 
 /* Forks are excluded from the working set at fetch time: they never appear
    in the picker, never consume the selection cap, and never cost API calls. */
-function applyForkFilter() {
-  state.repos = state.excludeForks
-    ? state.fetchedRepos.filter((r) => !r.fork)
-    : [...state.fetchedRepos];
+function applyRepoFilters() {
+  state.repos = state.fetchedRepos.filter((r) =>
+    !(state.excludeForks && r.fork) && !(state.excludePrivate && r.private));
   for (const name of [...state.selected]) {
     if (!state.repos.some((r) => r.name === name)) state.selected.delete(name);
   }
 }
-
-document.getElementById("exclude-forks").addEventListener("change", (e) => {
-  state.excludeForks = e.target.checked;
-  applyForkFilter();
-  renderPicker();
-});
 
 function showPickerError(e) {
   const errCard = document.getElementById("picker-error");
@@ -591,7 +586,9 @@ function updatePickerRing(name) {
 // so the audit later reuses them instead of fetching again.
 async function fetchReadmesProgressive() {
   const id = ++state.readmeFetchId;
-  const pending = state.repos.filter((r) => !(r.name in state.readmes) && !state.readmeError[r.name]);
+  const pending = state.repos
+    .filter((r) => !(r.name in state.readmes) && !state.readmeError[r.name])
+    .sort((a, b) => new Date(a.pushed_at) - new Date(b.pushed_at)); // oldest first
   if (!pending.length) return;
   for (let i = 0; i < pending.length; i += 5) {
     if (id !== state.readmeFetchId) return; // superseded

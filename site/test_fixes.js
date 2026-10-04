@@ -244,6 +244,21 @@ check("uses gpt-oss-120b", V("GROQ_MODEL") === "openai/gpt-oss-120b");
 // 8. connectGroq touches only elements that exist (regression: it once
 //    referenced the removed #groq-promo, so valid keys died silently).
 (async () => {
+  // repo filters live on the home screen, before fetching
+  V(`state.fetchedRepos = [
+    { name: "a", fork: false, private: false },
+    { name: "b", fork: true, private: false },
+    { name: "c", fork: false, private: true },
+  ]; state.selected = new Set(["b"]);`);
+  V(`state.excludeForks = true; state.excludePrivate = false; applyRepoFilters();`);
+  check("exclude forks", JSON.stringify(V(`state.repos.map((r) => r.name)`)) === JSON.stringify(["a","c"]));
+  check("filtered selection dropped", V(`state.selected.has("b")`) === false);
+  V(`state.excludeForks = false; state.excludePrivate = true; applyRepoFilters();`);
+  check("exclude private", JSON.stringify(V(`state.repos.map((r) => r.name)`)) === JSON.stringify(["a","b"]));
+  V(`state.excludeForks = true; state.excludePrivate = true; applyRepoFilters();`);
+  check("exclude both", JSON.stringify(V(`state.repos.map((r) => r.name)`)) === JSON.stringify(["a"]));
+  V(`state.fetchedRepos = []; state.repos = []; state.selected = new Set(); state.excludeForks = false; state.excludePrivate = false;`);
+
   // getReadmeCached reuses the picker's README instead of refetching
   V(`state.repos = [{ name: "r2", description: "d", homepage: "", topics: [], license: { spdx_id: "MIT" } }];`);
   V(`state.readmes = { r2: "# r2" }; V2 = getReadmeCached;`);

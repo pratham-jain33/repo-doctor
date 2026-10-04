@@ -61,6 +61,7 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .lede { color: var(--muted); font-size: 1.1rem; max-width: 620px; margin: 1.2rem auto 0; }
 
 .username-form { margin-top: 2rem; }
+.form-options { display: flex; gap: 1.4rem; margin-top: 0.9rem; flex-wrap: wrap; }
 .input-row { display: flex; gap: 0.6rem; max-width: 560px; margin: 0 auto; position: relative; }
 .input-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--faint); pointer-events: none; }
 .input-row input, .picker-search input {

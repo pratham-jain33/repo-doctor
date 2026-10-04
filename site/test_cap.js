@@ -111,16 +111,16 @@ V(`state.fetchedRepos = ${JSON.stringify([
   {name:"keep", fork:false}, {name:"forked", fork:true}
 ])}`);
 V('state.selected.clear(); state.selected.add("keep"); state.selected.add("forked")');
-V('state.excludeForks = true; applyForkFilter()');
+V('state.excludeForks = true; applyRepoFilters()');
 check("forks excluded from working set",
   V("state.repos.length") === 1 && V('state.repos[0].name') === "keep");
 check("forks dropped from selection",
   V("state.selected.size") === 1 && V('state.selected.has("keep")'));
-V('state.excludeForks = false; applyForkFilter()');
+V('state.excludeForks = false; applyRepoFilters()');
 check("unchecking brings forks back", V("state.repos.length") === 2);
 
 // 10. custom checkbox markup present in picker rows
-V('state.excludeForks = true; applyForkFilter()');
+V('state.excludeForks = true; applyRepoFilters()');
 V('state.selected.clear()');
 V('renderPicker()');
 check("rows use custom checkbox UI",

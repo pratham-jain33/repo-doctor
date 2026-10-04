@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css?v=20261004i">
+<link rel="stylesheet" href="styles.css?v=20261004j">
 </head>
 <body>
 
@@ -44,6 +44,10 @@
           <i data-lucide="at-sign" class="input-icon"></i>
           <input id="username-input" type="text" placeholder="your github username" spellcheck="false" autocapitalize="off">
           <button type="submit" class="btn btn-primary">Audit my repos <i data-lucide="arrow-right"></i></button>
+        </div>
+        <div class="form-options">
+          <label class="check"><input type="checkbox" id="exclude-forks"><span class="custom-check"><i data-lucide="check"></i></span> exclude forks</label>
+          <label class="check"><input type="checkbox" id="exclude-private"><span class="custom-check"><i data-lucide="check"></i></span> exclude private repos</label>
         </div>
         <p class="form-error" id="username-error" hidden></p>
       </form>
@@ -163,7 +167,6 @@
       <div class="picker-actions">
         <button class="btn btn-ghost" id="select-all">Select all</button>
         <button class="btn btn-ghost" id="select-none">Clear</button>
-        <label class="check"><input type="checkbox" id="exclude-forks"><span class="custom-check"><i data-lucide="check"></i></span> exclude forks</label>
       </div>
     </div>
     <div class="picker-search">
@@ -256,8 +259,8 @@
   </div>
 </footer>
 
-<script src="checks.js?v=20261004i"></script>
-<script src="icons.js?v=20261004i"></script>
-<script src="app.js?v=20261004i"></script>
+<script src="checks.js?v=20261004j"></script>
+<script src="icons.js?v=20261004j"></script>
+<script src="app.js?v=20261004j"></script>
 </body>
 </html>
