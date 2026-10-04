@@ -180,6 +180,11 @@ main.wrap { flex: 1; padding: 3rem 0 4rem; }
 .score-ring { width: 120px; height: 120px; transform: rotate(-90deg); }
 .ring-bg { fill: none; stroke: var(--line); stroke-width: 10; }
 .ring-fg { fill: none; stroke: var(--amber); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 326.7; stroke-dashoffset: 326.7; transition: stroke-dashoffset 1s ease; }
+.mini-ring { position: relative; width: 34px; height: 34px; flex-shrink: 0; align-self: center; }
+.mini-ring svg { width: 34px; height: 34px; transform: rotate(-90deg); display: block; }
+.mini-ring .ring-bg.mini, .mini-ring .ring-fg.mini { stroke-width: 3.5; }
+.mini-ring .ring-fg.mini { transition: none; }
+.mini-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.62rem; font-weight: 700; color: var(--ink); }
 .score-num { position: absolute; inset: 0; display: flex; align-items: baseline; justify-content: center; padding-top: 2.1rem; font-family: "Bricolage Grotesque"; font-weight: 800; font-size: 1.7rem; }
 .score-num small { font-size: 0.85rem; color: var(--faint); font-weight: 400; }
 
@@ -301,8 +306,7 @@ footer { border-top: 1px solid var(--line); padding: 1.8rem 0; }
   .connections-grid { grid-template-columns: 1fr; }
   .input-row { flex-direction: column; }
   .input-icon { top: 1.35rem; }
-  .repo-meta { display: flex; }
-  .repo-meta span:not(.pill) { display: none; }
+  .repo-meta { display: none; }
   .results-head { flex-direction: column-reverse; align-items: flex-start; }
   /* phone layout */
   main.wrap { padding: 1.8rem 0 2.5rem; }

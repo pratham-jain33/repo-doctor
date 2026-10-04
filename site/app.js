@@ -447,7 +447,26 @@ async function loadRepos() {
   document.getElementById("mode-line").textContent = state.token
     ? `Token connected as @${state.tokenLogin}: private repos included, 5,000 requests/hr.`
     : "Public repos only.";
+  restoreResults();
+  if (state.auditedAt) {
+    document.getElementById("mode-line").textContent += ` Scores from audit ${auditAgo(state.auditedAt)}.`;
+  }
   renderPicker();
+}
+
+// Last audit's results, so the picker can show scores before the next audit.
+function restoreResults() {
+  state.results = [];
+  state.auditedAt = 0;
+  try {
+    const raw = localStorage.getItem("rd_results_" + state.username);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data && Array.isArray(data.results)) {
+      state.results = data.results;
+      state.auditedAt = data.at || 0;
+    }
+  } catch (e) {}
 }
 
 /* Forks are excluded from the working set at fetch time: they never appear
@@ -501,6 +520,17 @@ function visibleRepos() {
   });
 }
 
+// Mini score ring for the picker: same language as the big results ring.
+function miniRing(score) {
+  const C = 2 * Math.PI * 13;
+  const color = score >= 80 ? "var(--green)" : score >= 50 ? "var(--amber)" : "var(--red)";
+  const off = (C * (1 - score / 100)).toFixed(1);
+  return `<span class="mini-ring" title="consistency score ${score}/100">`
+    + `<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" class="ring-bg mini"/>`
+    + `<circle cx="16" cy="16" r="13" class="ring-fg mini" style="stroke:${color};stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${off}"/></svg>`
+    + `<span class="mini-num">${score}</span></span>`;
+}
+
 // Score from the last audit, if this repo was in it.
 function lastScore(name) {
   const r = state.results.find((x) => x.name === name);
@@ -535,12 +565,12 @@ function renderPicker() {
     <label class="repo-row ${isSel ? "selected" : ""} ${disabled ? "capped" : ""}" data-name="${esc(r.name)}">
       <input type="checkbox" ${isSel ? "checked" : ""} ${disabled ? "disabled" : ""} data-repo="${esc(r.name)}" tabindex="-1">
       <span class="custom-check"><i data-lucide="check"></i></span>
+      ${(() => { const sc = lastScore(r.name); return sc === null ? "" : miniRing(sc); })()}
       <div class="repo-info">
         <div class="repo-name">${esc(r.name)} ${badges}</div>
         ${r.description ? `<div class="repo-desc">${esc(r.description)}</div>` : ""}
       </div>
       <div class="repo-meta">
-        ${(() => { const sc = lastScore(r.name); return sc === null ? "" : `<span class="pill ${sc >= 80 ? "cleanp" : sc >= 50 ? "warnp" : "miss"}">${sc}</span>`; })()}
         <span><i data-lucide="star"></i>${r.stargazers_count}</span>
         <span><i data-lucide="clock"></i>${timeAgo(r.pushed_at)}</span>
       </div>
@@ -675,6 +705,10 @@ async function startAudit(resume) {
 
   label.textContent = `Done. ${state.results.length} repos audited.`;
   state.auditedAt = Date.now();
+  try {
+    localStorage.setItem("rd_results_" + state.username,
+      JSON.stringify({ at: state.auditedAt, results: state.results }));
+  } catch (e) {}
   setTimeout(renderResults, 600);
 }
 
@@ -867,6 +901,7 @@ function buildFixPrompt(ctx) {
 
 README structure — use these sections in this order. Write every section below; the ONLY section you may skip is Screenshots, and only when no images or notes were provided:
 # Title
+<badges: put the badge line from the context on its own line directly under the title>
 <one or two honest lines saying what it is>
 ## Motivation
 ## Tech stack
@@ -899,6 +934,7 @@ GitHub description now: ${ctx.repo.description || "(empty)"}
 Language: ${ctx.repo.language || "unknown"} | Stars: ${ctx.repo.stargazers_count} | Topics now: ${(ctx.repo.topics || []).join(", ") || "(none)"}
 Files in repo root: ${ctx.files.join(", ") || "(empty repo)"}
 ${ctx.manifestName ? `--- ${ctx.manifestName} ---\n${ctx.manifestBody}\n` : "(no dependency manifest found)"}
+${ctx.badges ? `--- badges (place on their own line directly under the title; if the existing README already has badges, keep those and do not duplicate) ---\n${ctx.badges}\n` : ""}
 ${ctx.codeContext ? `--- source files (read these to fill the sections) ---\n${ctx.codeContext}\n` : ""}
 --- existing README (may be missing or incomplete) ---
 ${ctx.existing || "(none)"}
@@ -926,6 +962,44 @@ function codeScore(p) {
   if (/^(test|spec)/.test(base) || base.includes(".test.") || base.includes(".spec.")) s -= 30;
   s -= p.split("/").length * 4;
   return s;
+}
+
+function shield(label, message, color) {
+  const e = (s) => encodeURIComponent(String(s).replace(/-/g, "--"));
+  return `![${label}: ${message}](https://img.shields.io/badge/${e(label)}-${e(message)}-${color}.svg)`;
+}
+function manifestVersion(manifestName, body) {
+  if (!body) return "";
+  let m = null;
+  if (manifestName === "package.json") m = body.match(/"version"\s*:\s*"([^"]+)"/);
+  else if (manifestName === "pyproject.toml") m = body.match(/^version\s*=\s*"([^"]+)"/m);
+  return m ? m[1] : "";
+}
+function manifestLangVersion(manifestName, body) {
+  if (!body) return "";
+  let m = null;
+  if (manifestName === "pyproject.toml") {
+    m = body.match(/requires-python\s*=\s*"[^"]*?(\d+(?:\.\d+)*)/);
+    return m ? m[1] + "+" : "";
+  }
+  if (manifestName === "package.json") {
+    m = body.match(/"node"\s*:\s*"[^"]*?(\d+)/);
+    return m ? m[1] + "+" : "";
+  }
+  return "";
+}
+// shields.io badges derived from data we already have: license from the
+// GitHub API, language + version from the manifest. Never guessed.
+function buildBadges(repo, manifestName, manifestBody) {
+  const out = [];
+  const lic = repo && repo.license && repo.license.spdx_id;
+  if (lic && lic !== "NOASSERTION") out.push(shield("License", lic, "yellow"));
+  const lang = repo && repo.language;
+  const langVer = manifestLangVersion(manifestName, manifestBody);
+  if (lang && langVer) out.push(shield(lang, langVer, "blue"));
+  const ver = manifestVersion(manifestName, manifestBody);
+  if (ver) out.push(shield("version", "v" + ver, "brightgreen"));
+  return out.join(" ");
 }
 
 async function gatherFixContext(owner, name) {
@@ -971,7 +1045,8 @@ async function gatherFixContext(owner, name) {
     codeContext = parts.join("\n\n");
     codeFilesRead = parts.length;
   } catch (e) { /* code context is a nice-to-have */ }
-  return { owner, repo, files, manifestName, manifestBody, existing, codeContext, codeFilesRead };
+  const badges = buildBadges(repo, manifestName, manifestBody);
+  return { owner, repo, files, manifestName, manifestBody, existing, codeContext, codeFilesRead, badges };
 }
 
 function parseFixJson(raw) {

@@ -36,6 +36,10 @@ const sandbox = {
   TextDecoder,
   btoa: (s) => Buffer.from(s, "binary").toString("base64"),
   fetch: async () => { throw { type: "network" }; },
+  localStorage: { _s: {},
+    getItem(k) { return Object.prototype.hasOwnProperty.call(this._s, k) ? this._s[k] : null; },
+    setItem(k, v) { this._s[k] = String(v); },
+    removeItem(k) { delete this._s[k]; } },
   URL: { createObjectURL: () => "", revokeObjectURL: () => {} },
   Blob: function () {},
   ...checks,
@@ -156,6 +160,28 @@ const sorted = V(`sortPickerRepos([
 ]).map((r) => r.name)`);
 check("worst first, unscored oldest-first last", JSON.stringify(sorted) === JSON.stringify(["bad","ok","old","new"]));
 V(`state.results = []`);
+// 3i. mini ring on the picker
+const ring = V(`miniRing(28)`);
+check("mini ring shows score", ring.includes(">28<") && ring.includes("mini-ring"));
+check("mini ring red for low", ring.includes("var(--red)"));
+check("mini ring green for high", V(`miniRing(95)`).includes("var(--green)"));
+// 3j. results persist so scores survive reloads
+V(`state.username = "u"; state.results = [{ name: "a", missing: ["x"], warnings: [] }]; state.auditedAt = 12345;`);
+V(`(function(){ try { localStorage.setItem("rd_results_" + state.username, JSON.stringify({ at: state.auditedAt, results: state.results })); } catch (e) {} })()`);
+V(`state.results = []; state.auditedAt = 0; restoreResults();`);
+check("restoreResults round-trip", V(`state.results.length`) === 1 && V(`state.auditedAt`) === 12345 && V(`lastScore("a")`) === 88);
+V(`state.results = []; state.auditedAt = 0; state.username = "";`);
+// 3k. auto-badges from data we already have
+check("shield url", V(`shield("License", "MIT", "yellow")`) === "![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)");
+check("manifestVersion pyproject", V(`manifestVersion("pyproject.toml", '[project]\\nversion = "0.1.0"')`) === "0.1.0");
+check("manifestVersion package.json", V(`manifestVersion("package.json", '{"version": "2.3.4"}')`) === "2.3.4");
+check("langVersion python", V(`manifestLangVersion("pyproject.toml", 'requires-python = ">=3.10"')`) === "3.10+");
+const badges = V(`buildBadges({ license: { spdx_id: "MIT" }, language: "Python" }, "pyproject.toml", 'requires-python = ">=3.10"\\nversion = "0.1.0"')`);
+check("buildBadges three badges", badges.split("![").length === 4 && badges.includes("img.shields.io"));
+check("buildBadges skips unknown license", V(`buildBadges({ license: { spdx_id: "NOASSERTION" } }, "", "")`) === "");
+const prompt6 = V(`buildFixPrompt({ owner: "o", repo: { name: "r", description: "", language: "", stargazers_count: 0, topics: [] }, files: [], manifestName: "", manifestBody: "", existing: null, codeContext: "", badges: "![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)" })`);
+check("prompt places badges under title", prompt6.user.includes("badges (place on their own line directly under the title;"));
+
 
 // 3g. the AI writes everything except screenshots — no notes needed
 check("only screenshots may be skipped", prompt5.system.includes("the ONLY section you may skip is Screenshots"));
