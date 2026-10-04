@@ -841,7 +841,12 @@ README structure — use these sections in this order, skipping any you cannot f
 ## Features
 ## Installation
 ## Usage
-(## API reference and ## Tests only when genuinely applicable, or when the user gave notes for them)
+## Build status (only with real CI evidence — a badge or workflow in the files/README given — or user notes; never invent a badge)
+## Code style (infer from lint/format tools in the manifest like eslint, prettier, ruff, black; skip if none visible and no notes)
+## Screenshots (only from user-uploaded images or user notes)
+## Code example (a short usage snippet grounded in the existing README; skip if none)
+## API reference (document the public surface from the existing README and file names; skip if nothing to document)
+## Tests (how to run them, from the manifest scripts; skip if no test setup is visible)
 
 Hard rules:
 - No emojis anywhere.
@@ -1155,10 +1160,15 @@ function sectionInputs(name, work) {
   if (!secs.length) return "";
   const rows = secs.map((s) => {
     if (s === "screenshots") {
+      if (st.skipShots) {
+        return `<div class="fix-sec"><span>screenshots</span><p class="muted small">Skipped. No Screenshots section will be added. <button type="button" class="link-btn" data-unskip-shots>undo</button></p></div>`;
+      }
       const staged = st.shots.length
         ? `<p class="muted small">` + st.shots.length + ` screenshot` + (st.shots.length > 1 ? "s" : "") + ` staged: ` + st.shots.map((x) => esc(x.file)).join(", ") + `</p>`
         : "";
-      return `<label class="fix-sec"><span>screenshots</span><input type="file" data-sec-files accept="image/*" multiple></label>` + staged;
+      return `<div class="fix-sec"><span>screenshots</span><div class="shot-choice">`
+        + `<label class="btn btn-ghost btn-mini shot-upload">Upload screenshots<input type="file" data-sec-files accept="image/*" multiple hidden></label>`
+        + `<button type="button" class="btn btn-ghost btn-mini" data-skip-shots>Skip</button></div>` + staged + `</div>`;
     }
     return `<label class="fix-sec"><span>` + esc(s) + `</span><input data-sec="` + esc(s) + `" value="` + esc(st.hints[s] || "") + `" placeholder="notes for the AI"></label>`;
   }).join("");
@@ -1196,6 +1206,21 @@ function renderFixPreview(name, kinds, ctx, data, work) {
     const panel = work.closest(".fix-panel");
     await collectSectionState(panel, work);
     startFix(name, kinds, panel);
+  });
+  const skipBtn = work.querySelector("[data-skip-shots]");
+  if (skipBtn) skipBtn.addEventListener("click", async () => {
+    const panel = work.closest(".fix-panel");
+    await collectSectionState(panel, work);
+    panel._fixState.skipShots = true;
+    panel._fixState.shots = [];
+    renderFixPreview(name, kinds, ctx, data, work);
+  });
+  const unskipBtn = work.querySelector("[data-unskip-shots]");
+  if (unskipBtn) unskipBtn.addEventListener("click", async () => {
+    const panel = work.closest(".fix-panel");
+    await collectSectionState(panel, work);
+    panel._fixState.skipShots = false;
+    renderFixPreview(name, kinds, ctx, data, work);
   });
   work.querySelector("[data-apply]").addEventListener("click", () => applyFixes(name, kinds, ctx, data, work));
 }

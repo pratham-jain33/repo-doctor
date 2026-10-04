@@ -299,4 +299,23 @@ footer { border-top: 1px solid var(--line); padding: 1.8rem 0; }
   .input-icon { top: 1.35rem; }
   .repo-meta { display: none; }
   .results-head { flex-direction: column-reverse; align-items: flex-start; }
+  /* phone layout */
+  main.wrap { padding: 1.8rem 0 2.5rem; }
+  .hero { padding: 1rem 0 2rem; }
+  .topnav { display: none; }
+  .steps, .standard { margin: 2.2rem 0; }
+  .results-toolbar .picker-search { min-width: 0; flex-basis: 100%; }
+  .result-head { flex-wrap: wrap; gap: 0.6rem; padding: 0.85rem 1rem; }
+  .result-counts { flex-wrap: wrap; }
+  .result-body { padding: 0.9rem 1rem 1rem; }
+  .keys-hint { flex-direction: column; align-items: stretch; }
+  .token-row { flex-wrap: wrap; gap: 0.5rem; }
+  .fix-actions .btn { flex: 1; justify-content: center; }
+  .pr-card { padding: 1rem; }
+  .md-preview { padding: 0.85rem 0.9rem; }
+  .error-card { padding: 1.1rem; }
+  .shot-choice .btn { flex: 1; justify-content: center; }
+  .shot-choice { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+  .shot-upload { cursor: pointer; margin: 0; }
+  .link-btn { background: none; border: none; color: var(--amber); font-size: 0.82rem; cursor: pointer; font-family: "Inter", sans-serif; padding: 0; text-decoration: underline; }
 }

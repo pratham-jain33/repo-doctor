@@ -114,6 +114,8 @@ check("github repo url rejected as website", w3 === "");
 const w4 = pj({ readme: "# Hi", description: "d", topics: [] }).website;
 check("missing website defaults to empty", w4 === "");
 check("prompt asks for website from evidence", prompt.system.includes("\"website\"") && prompt.system.includes("Never invent"));
+check("prompt guides build status section", prompt.system.includes("## Build status") && prompt.system.includes("never invent a badge"));
+check("prompt guides code style and api reference", prompt.system.includes("## Code style") && prompt.system.includes("## API reference"));
 
 // 3d. section notes + screenshots are woven into the prompt
 const prompt3 = V(`buildFixPrompt({ owner: "o", repo: { name: "r", description: "", language: "", stargazers_count: 0, topics: [] }, files: [], manifestName: "", manifestBody: "", existing: null, sectionHints: {"build status": "CI runs on push"}, screenshots: ["docs/screenshots/a.png"] })`);
